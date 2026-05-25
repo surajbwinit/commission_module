@@ -1,0 +1,283 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===============================================================
+   shadcn/ui design tokens (HSL)
+   neutral: zinc · accent: violet
+=============================================================== */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 240 10% 3.9%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 3.9%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 3.9%;
+
+  --primary: 262.1 83.3% 57.8%;            /* violet-600 */
+  --primary-foreground: 0 0% 98%;
+
+  --secondary: 240 4.8% 95.9%;
+  --secondary-foreground: 240 5.9% 10%;
+
+  --muted: 240 4.8% 95.9%;
+  --muted-foreground: 240 3.8% 46.1%;
+
+  --accent: 240 4.8% 95.9%;
+  --accent-foreground: 240 5.9% 10%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+
+  --success: 142.1 76.2% 36.3%;
+  --warning: 38 92% 50%;
+  --info:    217.2 91.2% 59.8%;
+
+  --border: 240 5.9% 90%;
+  --input: 240 5.9% 90%;
+  --ring: 262.1 83.3% 57.8%;
+
+  --radius: 0.75rem;                       /* used by cards/inputs */
+
+  /* Legacy aliases so older class names still resolve */
+  --app:        250 250 251;
+  --surface:    255 255 255;
+  --sunken:     244 244 245;
+  --overlay:    255 255 255;
+  --line:       228 228 231;
+  --line-strong: 212 212 216;
+  --fg:         10  10  10;
+  --fg-muted:   113 113 122;
+  --fg-subtle:  161 161 170;
+  --shadow-color: 0 0 0;
+  --shimmer:    255 255 255;
+  --mesh-a:     196 181 253;
+  --mesh-b:     167 243 208;
+  --halo:       139 92 246;
+}
+
+.dark {
+  --background: 240 10% 3.9%;
+  --foreground: 0 0% 98%;
+
+  --card: 240 10% 3.9%;
+  --card-foreground: 0 0% 98%;
+
+  --popover: 240 10% 3.9%;
+  --popover-foreground: 0 0% 98%;
+
+  --primary: 263.4 70% 50.4%;              /* violet-500 */
+  --primary-foreground: 0 0% 98%;
+
+  --secondary: 240 3.7% 15.9%;
+  --secondary-foreground: 0 0% 98%;
+
+  --muted: 240 3.7% 15.9%;
+  --muted-foreground: 240 5% 64.9%;
+
+  --accent: 240 3.7% 15.9%;
+  --accent-foreground: 0 0% 98%;
+
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+
+  --success: 142.1 70.6% 45.3%;
+  --warning: 48 96% 53%;
+  --info:    217.2 91.2% 59.8%;
+
+  --border: 240 3.7% 15.9%;
+  --input: 240 3.7% 15.9%;
+  --ring: 263.4 70% 50.4%;
+
+  /* Legacy aliases (dark) */
+  --app:        9   9  11;
+  --surface:    24  24  27;
+  --sunken:     15  15  17;
+  --overlay:    32  32  35;
+  --line:       39  39  42;
+  --line-strong: 63 63 70;
+  --fg:         250 250 250;
+  --fg-muted:   161 161 170;
+  --fg-subtle:  113 113 122;
+  --shadow-color: 0 0 0;
+  --shimmer:    255 255 255;
+  --mesh-a:     167 139 250;
+  --mesh-b:     56  189 248;
+  --halo:       167 139 250;
+}
+
+/* ===============================================================
+   Base
+=============================================================== */
+html, body {
+  height: 100%;
+  font-feature-settings: "ss01", "cv11";
+}
+
+html       { color-scheme: light; }
+html.dark  { color-scheme: dark; }
+
+body {
+  color: hsl(var(--foreground));
+  background: hsl(var(--background));
+  font-family: theme('fontFamily.sans');
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* shadcn-style refined scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+  background-clip: padding-box;
+}
+
+::selection {
+  background: hsl(var(--primary) / 0.18);
+  color: hsl(var(--foreground));
+}
+
+/* ===============================================================
+   Component layer — shadcn-style primitives
+=============================================================== */
+@layer components {
+
+  /* ── Cards ─────────────────────────────── */
+  .card {
+    @apply rounded-xl border bg-card text-card-foreground shadow-sm;
+  }
+  .card-elevated  { @apply rounded-xl border bg-card text-card-foreground shadow-md; }
+  .card-glass     { @apply rounded-xl border bg-card/70 backdrop-blur-xl shadow-sm; }
+  .card-section   { @apply p-6; }
+  .card-hero      { @apply relative overflow-hidden rounded-xl border bg-card shadow-sm; }
+
+  /* ── Buttons ──────────────────────────── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md
+           text-sm font-medium transition-colors
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-primary text-primary-foreground h-9 px-4 py-2
+           hover:bg-primary/90;
+  }
+  .btn-secondary {
+    @apply btn bg-secondary text-secondary-foreground h-9 px-4 py-2
+           hover:bg-secondary/80;
+  }
+  .btn-outline {
+    @apply btn border border-input bg-background h-9 px-4 py-2
+           hover:bg-accent hover:text-accent-foreground;
+  }
+  .btn-ghost {
+    @apply btn h-9 px-3 py-2 text-foreground
+           hover:bg-accent hover:text-accent-foreground;
+  }
+  .btn-danger {
+    @apply btn bg-destructive text-destructive-foreground h-9 px-4 py-2
+           hover:bg-destructive/90;
+  }
+  .btn-sm { @apply h-8 px-3 text-xs; }
+  .btn-lg { @apply h-10 px-6 text-base; }
+
+  /* ── Inputs ───────────────────────────── */
+  .input {
+    @apply flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm
+           transition-colors
+           placeholder:text-muted-foreground
+           focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  textarea.input { @apply h-auto py-2 leading-relaxed; }
+  select.input   { @apply pr-8; }
+  .label         { @apply block text-xs font-medium text-foreground mb-1.5; }
+
+  /* ── Badges (shadcn-style) ────────────── */
+  .badge          { @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-2xs font-semibold transition-colors; }
+  .badge-neutral  { @apply border bg-secondary text-secondary-foreground; }
+  .badge-primary  { @apply bg-primary/10 text-primary border border-primary/20; }
+  .badge-success  { @apply bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30; }
+  .badge-warning  { @apply bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30; }
+  .badge-danger   { @apply bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30; }
+  .badge-info     { @apply bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-500/10 dark:text-sky-300 dark:border-sky-500/30; }
+  .badge-purple   { @apply bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:border-violet-500/30; }
+  .badge-soft     { @apply bg-muted text-muted-foreground border border-border; }
+
+  /* ── Pills (segmented control) ────────── */
+  .pill {
+    @apply inline-flex items-center gap-1.5 h-8 px-3 rounded-md text-sm font-medium
+           text-muted-foreground transition-colors
+           hover:bg-accent hover:text-accent-foreground
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+  .pill-active {
+    @apply bg-secondary text-secondary-foreground shadow-sm;
+  }
+
+  .hairline       { @apply border-t border-border; }
+
+  /* ── Section heads ────────────────────── */
+  .section-head    { @apply flex items-start justify-between gap-3 mb-4; }
+  .section-head h2 { @apply text-base font-semibold text-foreground tracking-tight; }
+  .section-head p  { @apply text-sm text-muted-foreground mt-0.5; }
+
+  /* ── Stat cards ───────────────────────── */
+  .stat-card {
+    @apply relative rounded-xl border bg-card p-6 transition-shadow hover:shadow-md;
+  }
+
+  /* ── Skeletons ────────────────────────── */
+  .skeleton {
+    @apply animate-pulse bg-muted rounded-md;
+  }
+
+  /* ── Typography ───────────────────────── */
+  .page-h1   { @apply text-3xl font-semibold text-foreground tracking-tight; }
+  .page-sub  { @apply text-sm text-muted-foreground mt-1.5; }
+  .mono      { @apply font-mono text-2xs uppercase tracking-wider text-muted-foreground; }
+  .eyebrow   { @apply text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground; }
+
+  /* Keyboard glyph */
+  .kbd {
+    @apply inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 rounded
+           border bg-muted text-muted-foreground text-[10px] font-mono;
+  }
+}
+
+/* ===============================================================
+   Utilities
+=============================================================== */
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .text-pretty  { text-wrap: pretty; }
+
+  /* Display serif (Instrument Serif) — used in hero titles + featured numbers */
+  .font-display { font-family: theme('fontFamily.display'); }
+  .font-serif   { font-family: theme('fontFamily.serif'); }
+
+  /* Subtle dot-grid background, optional on heroes */
+  .bg-dots {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.08) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .bg-dots-fade {
+    -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+            mask-image: radial-gradient(ellipse at center, black 30%, transparent 70%);
+  }
+
+  /* Inset brand accent bar (used on hero edges) */
+  .accent-rule {
+    @apply h-px w-12 bg-foreground/90;
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "//": "Copy this file to appsettings.json and fill in real values. appsettings.json is gitignored.",
+  "ConnectionStrings": {
+    "Default": "Host=YOUR_HOST;Port=5432;Database=YOUR_DB;Username=YOUR_USER;Password=YOUR_PASSWORD",
+    "Source":  "Host=YOUR_HOST;Port=5432;Database=YOUR_SOURCE_DB;Username=YOUR_USER;Password=YOUR_PASSWORD"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}

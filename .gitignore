@@ -1,0 +1,23 @@
+# IDE / editor
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Local secrets / overrides — keep everywhere
+*.Local.json
+.env.local
+.env.*.local
+
+# Build artefacts (per-folder .gitignore files cover the specifics)

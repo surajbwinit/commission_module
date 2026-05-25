@@ -1,0 +1,38 @@
+# .NET build output
+bin/
+obj/
+
+# Visual Studio / Rider user files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.idea/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+project.lock.json
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+[Cc]overage/
+
+# Local config — kept off git entirely (contains DB credentials)
+# A `appsettings.json.example` template is committed instead.
+appsettings.json
+appsettings.Local.json
+appsettings.*.Local.json
+# Do NOT ignore appsettings.Development.json — it carries non-secret dev defaults
+!appsettings.Development.json
+
+# Misc
+*.pdb
+*.dll.config
+*.exe.config
+launchSettings.local.json
