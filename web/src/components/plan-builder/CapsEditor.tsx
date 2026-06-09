@@ -6,15 +6,16 @@ import toast from 'react-hot-toast';
 import Tip from '@/components/Tip';
 
 interface CapRule {
-  id?: string;
+  uid?: string;
   cap_type: string;
   cap_value: number;
 }
 
 interface Plan {
-  id: string;
+  uid: string;
   capping_rules?: CapRule[];
-  currency?: string;
+  currency_uid?: string;
+  currency_code?: string;
 }
 
 const CAP_TYPES = [
@@ -41,7 +42,7 @@ export default function CapsEditor({ plan, onChange }: { plan: Plan; onChange: (
   const save = async () => {
     setSaving(true);
     try {
-      await api.put(`/plans/${plan.id}/caps`, {
+      await api.put(`/plans/${plan.uid}/caps`, {
         rules: draft.map((r) => ({ capType: r.cap_type, capValue: Number(r.cap_value) || 0 })),
       });
       toast.success('Caps saved');
@@ -50,7 +51,7 @@ export default function CapsEditor({ plan, onChange }: { plan: Plan; onChange: (
     finally { setSaving(false); }
   };
 
-  const currency = plan.currency || 'SAR';
+  const currency = plan.currency_code;  // may be undefined — UI handles it
 
   return (
     <section className="card p-5">
@@ -86,7 +87,7 @@ export default function CapsEditor({ plan, onChange }: { plan: Plan; onChange: (
             const meta = CAP_TYPES.find((c) => c.value === cap.cap_type);
             const isPercent = cap.cap_type === 'percent_of_salary';
             return (
-              <div key={cap.id ?? i} className="flex items-end gap-2 border border-line rounded-lg p-3 bg-sunken/40">
+              <div key={cap.uid ?? i} className="flex items-end gap-2 border border-slate-200 rounded-lg p-3 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40">
                 <label className="w-48">
                   <span className="block text-2xs uppercase text-fg-muted mb-1">Cap type</span>
                   <select
@@ -99,7 +100,7 @@ export default function CapsEditor({ plan, onChange }: { plan: Plan; onChange: (
                 </label>
                 <label className="w-40">
                   <span className="block text-2xs uppercase text-fg-muted mb-1">
-                    Value {isPercent ? '(%)' : `(${currency})`}
+                    Value {isPercent ? '(%)' : currency ? `(${currency})` : ''}
                   </span>
                   <input
                     type="number"

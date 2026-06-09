@@ -1,15 +1,15 @@
 import { create } from 'zustand';
 
-interface Persona {
-  id: string;
+export interface Persona {
+  uid: string;
   name: string;
-  role: string;
-  roleId: string;
+  role_code: string;
+  role_name: string;
 }
 
 interface AppState {
-  currentPersona: Persona;
-  setPersona: (p: Persona) => void;
+  currentPersona: Persona | null;
+  setPersona: (p: Persona | null) => void;
 
   selectedPeriod: string;
   setSelectedPeriod: (p: string) => void;
@@ -25,7 +25,7 @@ const currentPeriod = () => {
 };
 
 export const useAppStore = create<AppState>((set) => ({
-  currentPersona: { id: 'admin', name: 'Admin', role: 'Administrator', roleId: 'role-nsm' },
+  currentPersona: null,
   setPersona: (currentPersona) => set({ currentPersona }),
 
   selectedPeriod: currentPeriod(),

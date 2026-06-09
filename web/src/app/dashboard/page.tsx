@@ -1,15 +1,15 @@
 'use client';
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Trophy, Crown, Medal, Wallet, DollarSign, Users, Target, TrendingUp, TrendingDown,
-  Award, Flame, Shield, Sparkles, ChevronRight, ArrowUpRight,
+  Award, Flame, Shield, Sparkles, ChevronRight, ChevronDown, ArrowUpRight,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
-import { formatCurrency, formatCurrencyCompact, formatPercent, cn } from '@/lib/utils';
+import { formatCurrency, formatPercent, cn } from '@/lib/utils';
 import StatCard from '@/components/ui/StatCard';
 import { Skeleton } from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
@@ -18,11 +18,12 @@ import { useTheme } from '@/components/theme/ThemeProvider';
 import PageHero from '@/components/layout/PageHero';
 
 interface PayoutRow {
-  id: string;
-  employee_id: string;
+  uid: string;
+  emp_uid: string;
   employee_name: string;
   role_name: string;
-  plan_name: string;
+  plan_name: string;                 // comma-joined when employee is on multiple plans
+  plan_count?: number;
   net_payout: number;
   gross_payout?: number;
   achievement_percent?: number;
@@ -35,6 +36,12 @@ interface DashboardData {
   kpi_count: number;
   total_payout: number;
   run_count: number;
+  earners_count: number;
+  payout_population: number;
+  avg_payout: number;
+  median_payout: number;
+  currency_code: string | null;
+  currency_symbol: string | null;
 }
 
 // ─── Tier classification ────────────────────────────────────────
@@ -94,12 +101,26 @@ const TIER = {
 } as const;
 type TierKey = keyof typeof TIER;
 
+const TIER_ORDER: TierKey[] = ['champion', 'high_performer', 'on_track', 'developing', 'below_target'];
+const TIER_RANGE: Record<TierKey, string> = {
+  champion:       '≥ 110%',
+  high_performer: '100–110%',
+  on_track:       '85–100%',
+  developing:     '70–85%',
+  below_target:   '< 70%',
+};
+
 // ─── Page ───────────────────────────────────────────────────────
+// Salesperson-style dashboards are shown to individual contributors (their own
+// payout breakdown). Everyone else (managers, admins) sees the executive view.
+// Source role codes follow the Winit `roles.code` convention (e.g. 'SALESMAN', 'SR').
+const IC_ROLE_CODES = new Set(['SALESMAN', 'SR']);
+
 export default function DashboardPage() {
   const { selectedPeriod, currentPersona } = useAppStore();
-  const isSalesperson = currentPersona.roleId === 'role-salesman' || currentPersona.roleId === 'role-sr';
-  return isSalesperson
-    ? <SalespersonDashboard period={selectedPeriod} employeeId={currentPersona.id} name={currentPersona.name} />
+  const isSalesperson = !!currentPersona && IC_ROLE_CODES.has(currentPersona.role_code);
+  return isSalesperson && currentPersona
+    ? <SalespersonDashboard period={selectedPeriod} empUid={currentPersona.uid} name={currentPersona.name} />
     : <ExecutiveDashboard period={selectedPeriod} />;
 }
 
@@ -155,20 +176,51 @@ function ExecutiveDashboard({ period }: { period: string }) {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHero
-        eyebrow="Home"
-        title={`Commission · ${formatPeriodLabel(period)}`}
+        title="Dashboard"
+        subtitle={formatPeriodLabel(period)}
       />
 
-      {/* KPI strip — 4 equal cards, with the total payout deliberately accented */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 rounded-xl border bg-card shadow-sm divide-x divide-y lg:divide-y-0 overflow-hidden">
-        <KpiTile
+      {/* Payout headline — three primary tiles with stronger visual treatment */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <PayoutTile
+          icon={Wallet}
+          tone="violet"
           label="Total payout"
-          value={summary
-            ? <span title={formatCurrency(summary.total_payout)}>{formatCurrencyCompact(summary.total_payout)}</span>
-            : <Skeleton className="h-7 w-32" />}
-          hint={summary ? `${summary.run_count} calc run${summary.run_count === 1 ? '' : 's'}` : null}
-          featured
+          loading={!summary}
+          value={summary ? (
+            <span title={summary.currency_code ? `${summary.currency_code} ${summary.total_payout.toLocaleString()}` : undefined}>
+              {formatCurrency(summary.total_payout, summary.currency_code)}
+            </span>
+          ) : null}
+          hint={summary ? `${summary.run_count} calc run${summary.run_count === 1 ? '' : 's'} this period` : null}
         />
+        <PayoutTile
+          icon={Users}
+          tone="emerald"
+          label="Earning commission"
+          loading={!summary}
+          value={summary ? (
+            <span className="tabular-nums">
+              {summary.earners_count}
+              <span className="text-muted-foreground/70 font-normal text-xl"> / {summary.payout_population}</span>
+            </span>
+          ) : null}
+          hint={summary && summary.payout_population > 0 ? (
+            <EarnersBar earners={summary.earners_count} total={summary.payout_population} />
+          ) : 'No payouts yet'}
+        />
+        <PayoutTile
+          icon={TrendingUp}
+          tone="amber"
+          label="Avg payout"
+          loading={!summary}
+          value={summary ? formatCurrency(summary.avg_payout, summary.currency_code) : null}
+          hint={summary ? `Across ${summary.payout_population} payouts this period` : null}
+        />
+      </div>
+
+      {/* Secondary counts — supporting tiles */}
+      <div className="grid grid-cols-3 rounded-xl border bg-card shadow-sm divide-x overflow-hidden">
         <KpiTile
           label="Active employees"
           value={summary?.employee_count ?? <Skeleton className="h-7 w-16" />}
@@ -198,6 +250,28 @@ function ExecutiveDashboard({ period }: { period: string }) {
         />
       )}
 
+      {/* Performance tiers — 5 separate cards, one per tier */}
+      {leaderboard.length > 0 && (
+        <section>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100">Performance tiers</h2>
+            <span className="text-xs text-slate-500">
+              {leaderboard.length} employee{leaderboard.length === 1 ? '' : 's'} this period
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+            {TIER_ORDER.map((key) => (
+              <TierCard
+                key={key}
+                tierKey={key}
+                employees={byTier[key]}
+                totalEmployees={leaderboard.length}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Achievement spread — full width section */}
       <section className="card p-6">
         <div className="section-head">
@@ -218,25 +292,23 @@ function ExecutiveDashboard({ period }: { period: string }) {
 // ═══════════════════════════════════════════════════════════════
 // Salesperson Dashboard
 // ═══════════════════════════════════════════════════════════════
-function SalespersonDashboard({ period, employeeId, name }: { period: string; employeeId: string; name: string }) {
+function SalespersonDashboard({ period, empUid, name }: { period: string; empUid: string; name: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    api.get<unknown, any>(`/dashboard/salesperson/${employeeId}?period=${period}`)
+    api.get<unknown, any>(`/dashboard/salesperson/${empUid}?period=${period}`)
       .then(setData)
       .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, [employeeId, period]);
+  }, [empUid, period]);
 
   return (
     <div className="space-y-8 animate-fade-in">
       <PageHero
-        eyebrow={`Period · ${formatPeriodLabel(period)}`}
-        title={`Hi, ${name.split(' ')[0]}`}
-        subtitle="Here's how your commission is shaping up this period."
-        accessory={<Badge tone="purple"><Sparkles className="w-3 h-3" /> Salesperson view</Badge>}
+        title={`${name.split(' ')[0]}'s Commission`}
+        subtitle={formatPeriodLabel(period)}
       />
       {loading ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -276,7 +348,7 @@ function SalespersonDashboard({ period, employeeId, name }: { period: string; em
                   const pct = Number(k.achievement_percent ?? 0);
                   const bar = pct >= 100 ? 'bg-emerald-400' : pct >= 85 ? 'bg-sky-400' : pct >= 70 ? 'bg-amber-400' : 'bg-rose-400';
                   return (
-                    <tr key={k.id} className="border-t border-line/60 hover:bg-sunken/40 transition-colors">
+                    <tr key={k.uid} className="border-t border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="pl-5 px-2 py-3">
                         <div className="font-medium text-fg">{k.kpi_name}</div>
                         <div className="text-2xs font-mono text-fg-subtle">{k.kpi_code}</div>
@@ -314,6 +386,55 @@ function PageHeader({ title, subtitle, accessory }: { title: string; subtitle?: 
   return <PageHero title={title} subtitle={subtitle} accessory={accessory} />;
 }
 
+function TierCard({
+  tierKey, employees, totalEmployees,
+}: {
+  tierKey: TierKey;
+  employees: PayoutRow[];
+  totalEmployees: number;
+}) {
+  const meta = TIER[tierKey];
+  const Icon = meta.icon;
+  const count = employees.length;
+  const totalPayout = employees.reduce((s, e) => s + (e.net_payout || 0), 0);
+  const pct = totalEmployees > 0 ? Math.round((count / totalEmployees) * 100) : 0;
+
+  return (
+    <article className="card p-4 relative overflow-hidden group transition-shadow hover:shadow-md">
+      {/* Coloured accent bar on the left edge */}
+      <div className={cn('absolute left-0 top-0 bottom-0 w-1', meta.bar)} />
+
+      <div className="flex items-start justify-between mb-3">
+        <div className={cn('h-8 w-8 rounded-md ring-1 flex items-center justify-center', meta.bg, meta.ring, meta.text)}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">{TIER_RANGE[tierKey]}</span>
+      </div>
+
+      <div className={cn('text-xs font-medium', meta.text)}>{meta.label}</div>
+      <div className="mt-1 text-2xl font-bold tabular-nums text-slate-800 dark:text-slate-100 leading-none">
+        {count}
+        <span className="ml-1.5 text-xs font-normal text-slate-500">
+          {count === 1 ? 'employee' : 'employees'}
+        </span>
+      </div>
+
+      <div className="mt-3 text-xs text-slate-500">
+        <span className="tabular-nums font-medium text-slate-700 dark:text-slate-300">
+          {formatCurrency(totalPayout)}
+        </span>
+        {' '}total payout
+      </div>
+
+      {/* Share-of-team progress bar */}
+      <div className="mt-3 h-1 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+        <div className={cn('h-full transition-all', meta.bar)} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-1 text-[10px] text-slate-400 tabular-nums">{pct}% of team</div>
+    </article>
+  );
+}
+
 function KpiTile({
   label, value, hint, featured = false,
 }: {
@@ -336,6 +457,55 @@ function KpiTile({
         {value}
       </div>
       {hint && <div className="mt-1.5 text-xs text-muted-foreground truncate">{hint}</div>}
+    </div>
+  );
+}
+
+const PAYOUT_TONES = {
+  violet:  { chip: 'bg-violet-50 text-violet-700 ring-violet-100 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/20', bar: 'bg-violet-500' },
+  emerald: { chip: 'bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20', bar: 'bg-emerald-500' },
+  amber:   { chip: 'bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/20', bar: 'bg-amber-500' },
+} as const;
+type PayoutTone = keyof typeof PAYOUT_TONES;
+
+function PayoutTile({
+  icon: Icon, tone, label, value, hint, loading,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  tone: PayoutTone;
+  label: string;
+  value: React.ReactNode;
+  hint?: React.ReactNode;
+  loading?: boolean;
+}) {
+  const t = PAYOUT_TONES[tone];
+  return (
+    <article className="relative overflow-hidden rounded-xl border bg-card shadow-sm hover:shadow-md transition-shadow p-5">
+      <div className={cn('absolute left-0 top-0 bottom-0 w-1', t.bar)} />
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</div>
+          <div className="mt-2 text-2xl md:text-3xl font-semibold tabular-nums tracking-tight text-foreground leading-none">
+            {loading ? <Skeleton className="h-8 w-32" /> : value}
+          </div>
+        </div>
+        <div className={cn('shrink-0 h-9 w-9 rounded-md ring-1 flex items-center justify-center', t.chip)}>
+          <Icon className="h-4.5 w-4.5" />
+        </div>
+      </div>
+      <div className="mt-3 text-xs text-muted-foreground min-h-[1rem]">{loading ? <Skeleton className="h-3 w-24" /> : hint}</div>
+    </article>
+  );
+}
+
+function EarnersBar({ earners, total }: { earners: number; total: number }) {
+  const pct = total > 0 ? Math.round((earners / total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+        <div className="h-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="tabular-nums text-[11px] font-medium text-muted-foreground">{pct}%</span>
     </div>
   );
 }
@@ -383,7 +553,7 @@ function Podium({ rows }: { rows: PayoutRow[] }) {
             const rank = idx + 1;
             const isFirst = rank === 1;
             return (
-              <li key={row.id} className={cn(
+              <li key={row.uid} className={cn(
                 'group relative overflow-hidden rounded-xl border bg-background p-5 transition-all',
                 'hover:shadow-md',
                 isFirst && 'border-foreground/30'
@@ -438,6 +608,7 @@ function PodiumSkeleton() {
 
 function Leaderboard({ rows, loading }: { rows: PayoutRow[]; loading: boolean }) {
   const maxPayout = Math.max(...rows.map((r) => r.net_payout), 1);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   return (
     <section className="card overflow-hidden">
@@ -470,8 +641,12 @@ function Leaderboard({ rows, loading }: { rows: PayoutRow[]; loading: boolean })
               const TierIcon = t.icon;
               const isTop3 = idx < 3;
               const medals = ['🥇', '🥈', '🥉'];
+              const isMulti = (row.plan_count ?? 1) > 1;
+              const isOpen  = expandedRow === row.uid;
+              const planList = row.plan_name?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
               return (
-                <tr key={row.id} className="border-t border-line/60 hover:bg-sunken/40 transition-colors group">
+                <React.Fragment key={row.uid}>
+                <tr className="border-t border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 transition-colors group">
                   <td className="pl-5 pr-2 py-3 font-mono text-xs text-fg-muted tabular-nums">
                     {isTop3 ? <span className="text-base">{medals[idx]}</span> : (idx + 1).toString().padStart(2, '0')}
                   </td>
@@ -485,7 +660,21 @@ function Leaderboard({ rows, loading }: { rows: PayoutRow[]; loading: boolean })
                   </td>
                   <td className="px-2 py-3 text-fg-muted">{row.role_name}</td>
                   <td className="px-2 py-3">
-                    <span className="badge badge-soft">{row.plan_name}</span>
+                    {isMulti ? (
+                      <button
+                        type="button"
+                        onClick={() => setExpandedRow(isOpen ? null : row.uid)}
+                        className={cn(
+                          'badge badge-soft inline-flex items-center gap-1 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700',
+                          isOpen && 'bg-primary/15 text-primary'
+                        )}
+                      >
+                        {row.plan_count} plans
+                        {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                      </button>
+                    ) : (
+                      <span className="badge badge-soft" title={row.plan_name}>{row.plan_name}</span>
+                    )}
                   </td>
                   <td className="px-2 py-3">
                     <div className="flex items-center gap-2">
@@ -502,6 +691,21 @@ function Leaderboard({ rows, loading }: { rows: PayoutRow[]; loading: boolean })
                     {formatCurrency(row.net_payout)}
                   </td>
                 </tr>
+                {isOpen && (
+                  <tr className="bg-slate-50/60 dark:bg-slate-800/40">
+                    <td colSpan={6} className="pl-5 pr-5 py-3">
+                      <div className="text-2xs uppercase tracking-wider text-fg-subtle mb-2">
+                        Plans contributing to {row.employee_name}'s payout
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {planList.map((name) => (
+                          <span key={name} className="badge badge-info text-xs">{name}</span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               );
             })}
           </tbody>

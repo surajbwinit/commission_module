@@ -21,11 +21,11 @@ const STAGES = [
 ] as const;
 
 interface Payout {
-  id: string;
-  employee_id: string;
+  uid: string;
+  emp_uid: string;
   employee_name: string;
   role_name: string;
-  plan_id: string;
+  plan_uid: string;
   plan_name: string;
   period: string;
   gross_payout: number;
@@ -35,7 +35,7 @@ interface Payout {
   net_payout: number;
   approval_status: string;
   eligibility_status: string;
-  created_at: string;
+  created_time: string;
 }
 
 type Stage = (typeof STAGES)[number]['id'];
@@ -81,9 +81,9 @@ export default function ApprovalsPage() {
   useEffect(() => { loadCounts(); }, []);
 
   const action = async (p: Payout, act: string, comments?: string) => {
-    setActing(p.id);
+    setActing(p.uid);
     try {
-      await api.post(`/approvals/${p.id}/action`, { action: act, actedBy: 'admin', comments });
+      await api.post(`/approvals/${p.uid}/action`, { action: act, actedBy: 'admin', comments });
       toast.success(act === 'rejected' ? 'Rejected' : 'Approved');
       load(); loadCounts();
     } catch (e: any) { toast.error(e.message); }
@@ -106,18 +106,15 @@ export default function ApprovalsPage() {
     load(); loadCounts();
   };
 
-  const toggleAll = () => setSelected(selected.size === rows.length ? new Set<string>() : new Set(rows.map((r) => r.id)));
-  const toggle = (id: string) => {
-    const next = new Set(selected); if (next.has(id)) next.delete(id); else next.add(id); setSelected(next);
+  const toggleAll = () => setSelected(selected.size === rows.length ? new Set<string>() : new Set(rows.map((r) => r.uid)));
+  const toggle = (uid: string) => {
+    const next = new Set(selected); if (next.has(uid)) next.delete(uid); else next.add(uid); setSelected(next);
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHero
-        eyebrow="Now"
-        title="Approval"
-        emphasis="queue"
-        subtitle="Move commission payouts through the multi-stage approval chain."
+        title="Approvals"
         meta={
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {STAGES.map((s, i) => (
@@ -148,7 +145,7 @@ export default function ApprovalsPage() {
             <input type="checkbox"
               checked={selected.size === rows.length && rows.length > 0}
               onChange={toggleAll}
-              className="rounded border-line-strong" />
+              className="rounded border-slate-300" />
             <span>{selected.size > 0 ? `${selected.size} selected` : 'Select all'}</span>
           </label>
           {selected.size > 0 && currentStage.next && (
@@ -191,13 +188,13 @@ export default function ApprovalsPage() {
             </thead>
             <tbody>
               {rows.map((p) => (
-                <tr key={p.id} className={cn(
+                <tr key={p.uid} className={cn(
                   'border-t border-line/60 transition-colors',
-                  selected.has(p.id) ? 'bg-primary-50/40 dark:bg-primary-500/8' : 'hover:bg-sunken/40'
+                  selected.has(p.uid) ? 'bg-primary-50/40 dark:bg-primary-500/8' : 'hover:bg-sunken/40'
                 )}>
                   {!isTerminal && (
                     <td className="pl-5 pr-2 py-3">
-                      <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggle(p.id)} className="rounded border-line-strong" />
+                      <input type="checkbox" checked={selected.has(p.uid)} onChange={() => toggle(p.uid)} className="rounded border-slate-300" />
                     </td>
                   )}
                   <td className={cn('px-2 py-3', isTerminal && 'pl-5')}>
@@ -230,17 +227,17 @@ export default function ApprovalsPage() {
                     ) : (
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          disabled={acting === p.id}
+                          disabled={acting === p.uid}
                           onClick={() => {
                             const next = currentStage.next;
                             if (next) action(p, next);
                           }}
                           className="btn-sm btn bg-emerald-600 text-white hover:bg-emerald-700 shadow-card"
                         >
-                          {acting === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5" /> Approve</>}
+                          {acting === p.uid ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5" /> Approve</>}
                         </button>
                         <button
-                          disabled={acting === p.id}
+                          disabled={acting === p.uid}
                           onClick={() => setRejectTarget(p)}
                           className="btn-sm btn bg-surface text-rose-600 border border-rose-200 hover:bg-rose-50 dark:text-rose-400 dark:border-rose-500/30 dark:hover:bg-rose-500/10"
                         >

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, Instrument_Serif } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
 import Explorer from '@/components/layout/Explorer';
@@ -12,14 +12,6 @@ const inter = Inter({
   display: 'swap',
 });
 
-const instrumentSerif = Instrument_Serif({
-  subsets: ['latin'],
-  variable: '--font-serif',
-  weight: '400',
-  style: ['normal', 'italic'],
-  display: 'swap',
-});
-
 export const metadata: Metadata = {
   title: 'Commission · WINIT',
   description: 'Commission management — design, simulate, approve.',
@@ -27,11 +19,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${instrumentSerif.variable}`} suppressHydrationWarning>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
       </head>
-      <body className="antialiased font-sans bg-background text-foreground">
+      <body className="antialiased font-sans bg-slate-50 text-slate-700 dark:bg-slate-950 dark:text-slate-200">
         <ThemeProvider>
           <Toaster
             position="top-right"
@@ -49,14 +41,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               error:   { iconTheme: { primary: '#ef4444', secondary: '#fef2f2' } },
             }}
           />
-          <div className="flex flex-col h-screen overflow-hidden">
-            <Header />
-            <div className="flex-1 flex overflow-hidden">
-              <Explorer />
-              <main className="flex-1 overflow-y-auto bg-muted/20">
-                <div className="max-w-6xl mx-auto p-6 lg:p-8">
-                  {children}
-                </div>
+          <div className="flex h-screen overflow-hidden">
+            <Explorer />
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <Header />
+              <main className="flex-1 overflow-y-auto p-6">
+                {children}
               </main>
             </div>
           </div>

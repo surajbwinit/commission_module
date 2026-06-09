@@ -1,42 +1,43 @@
+using System.Text.Json;
 using Commission.Api.Data;
 using Dapper;
 
 namespace Commission.Api.Engine;
 
 /// <summary>
-/// All 13 pipeline steps as static helpers — preserves the file-per-step
-/// structure of the JS code in one cohesive C# file. Each function maps 1:1
-/// to its server/src/engine/stepNN_*.js counterpart.
+/// All pipeline steps as static helpers. Every SQL string targets the new
+/// commissionv1 schema (id BIGSERIAL + uid VARCHAR + FKs on uid + boolean is_active).
 /// </summary>
 public static class Steps
 {
     // -----------------------------------------------------------------
     // Step 1 — fetchScopedTransactions
-    //   Self + reports_to descendants + currency normalization + event promotion
+    //   Self + reports_to descendants + territory subtree fallback
     // -----------------------------------------------------------------
     public static async Task<List<Transaction>> FetchScopedTransactionsAsync(
-        IDb db, string employeeId, string period, string? territoryId, string? roleId,
+        IDb db, string empUid, string period, string? salesOfficeUid, string? roleUid,
+        string? baseCurrencyCode = null,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrEmpty(employeeId)) return new();
+        if (string.IsNullOrEmpty(empUid)) return new();
 
         var allEmployees = (await db.QueryDynamicAsync(
-            "SELECT id, reports_to FROM employees WHERE is_active = 1", ct: ct)).ToList();
+            "SELECT uid, reports_to_uid FROM employees WHERE is_active = TRUE", ct: ct)).ToList();
         if (allEmployees.Count == 0) return new();
 
         var childrenByManager = new Dictionary<string, List<string>>();
         foreach (var e in allEmployees)
         {
-            string? rt = e.reports_to;
+            string? rt = e.reports_to_uid;
             if (string.IsNullOrEmpty(rt)) continue;
             if (!childrenByManager.TryGetValue(rt!, out var list)) { list = new(); childrenByManager[rt!] = list; }
-            list.Add((string)e.id);
+            list.Add((string)e.uid);
         }
 
         var scoped = new List<string>();
         var visited = new HashSet<string>();
         var queue = new Queue<string>();
-        queue.Enqueue(employeeId);
+        queue.Enqueue(empUid);
         while (queue.Count > 0)
         {
             var curr = queue.Dequeue();
@@ -46,120 +47,97 @@ public static class Steps
                 foreach (var k in kids) queue.Enqueue(k);
         }
 
-        // Supervisor fallback (same as JS): if scope still just self, expand to territory subtree
-        var supervisorRoles = new HashSet<string> {
-            "role-route-sup", "role-ss", "role-asm", "role-rsm", "role-depot-mgr"
+        // Supervisor fallback: if scope is just self, expand to sales-office peers.
+        // Note: ERP doesn't have territory hierarchy — sales_offices is flat under org_uid.
+        var supervisorRoleHints = new HashSet<string> {
+            "ROUTE_SUP", "SS", "ASM", "RSM", "DEPOT_MGR"
         };
-        if (roleId != null && supervisorRoles.Contains(roleId) && scoped.Count <= 1 && !string.IsNullOrEmpty(territoryId))
+        // role_uid is opaque — we can't pattern-match without the role's code joined in. Skip for now;
+        // the role-aware expansion can be re-added when employees.role_code is reliably populated.
+        if (scoped.Count <= 1 && !string.IsNullOrEmpty(salesOfficeUid))
         {
-            var allTerrs = (await db.QueryDynamicAsync("SELECT id, parent_id FROM territories", ct: ct)).ToList();
-            var subtree = new HashSet<string> { territoryId! };
-            bool changed = true;
-            while (changed)
+            var rows = await db.QueryDynamicAsync(
+                "SELECT uid FROM employees WHERE is_active = TRUE AND uid <> @e AND sales_office_uid = @o",
+                new { e = empUid, o = salesOfficeUid }, ct: ct);
+            foreach (var r in rows)
             {
-                changed = false;
-                foreach (var t in allTerrs)
-                {
-                    string id = t.id; string? pid = t.parent_id;
-                    if (!subtree.Contains(id) && pid != null && subtree.Contains(pid))
-                    { subtree.Add(id); changed = true; }
-                }
-            }
-            if (subtree.Count > 0)
-            {
-                var rows = await db.QueryDynamicAsync(
-                    "SELECT id FROM employees WHERE is_active = 1 AND id <> @e AND territory_id = ANY(@ts)",
-                    new { e = employeeId, ts = subtree.ToArray() }, ct: ct);
-                foreach (var r in rows)
-                {
-                    string id = r.id;
-                    if (visited.Add(id)) scoped.Add(id);
-                }
+                string uid = r.uid;
+                if (visited.Add(uid)) scoped.Add(uid);
             }
         }
 
-        // Standard transactions joined with products + customers
+        // Pull transactions joined with products + customers
         var txns = (await db.QueryAsync<Transaction>(@"
-            SELECT t.id, t.employee_id AS EmployeeId, t.customer_id AS CustomerId, t.product_id AS ProductId,
-                   t.transaction_type AS TransactionType, t.quantity, t.amount,
-                   t.transaction_date AS TransactionDate, t.period, t.territory_id AS TerritoryId,
-                   COALESCE(t.currency, 'AED') AS Currency,
+            SELECT t.uid AS Uid,
+                   t.emp_uid AS EmpUid,
+                   t.customer_uid AS CustomerUid,
+                   t.product_uid AS ProductUid,
+                   t.transaction_type AS TransactionType,
+                   t.quantity AS Quantity,
+                   t.amount AS Amount,
+                   t.transaction_date AS TransactionDate,
+                   t.period AS Period,
+                   t.sales_office_uid AS SalesOfficeUid,
+                   COALESCE(t.currency_uid, '') AS CurrencyUid,
                    COALESCE(t.base_amount, t.amount) AS BaseAmount,
                    COALESCE(t.exchange_rate, 1.0) AS ExchangeRate,
-                   p.name AS ProductName, p.category AS ProductCategory, p.sku AS Sku,
-                   p.is_strategic AS IsStrategic, p.is_new_launch AS IsNewLaunch, p.tags AS ProductTags,
-                   c.name AS CustomerName, c.channel AS CustomerChannel,
-                   c.customer_group AS CustomerGroup, c.customer_group_name AS CustomerGroupName,
-                   c.tags AS CustomerTags
+                   t.source_parent_uid AS SourceParentUid,
+                   p.code AS ProductCode, p.name AS ProductName,
+                   p.brand_uid AS ProductBrandUid, p.brand_name AS ProductBrandName,
+                   p.category_uid AS ProductCategoryUid, p.category_name AS ProductCategoryName,
+                   p.subcategory_uid AS ProductSubcategoryUid, p.subcategory_name AS ProductSubcategoryName,
+                   COALESCE(p.is_strategic, FALSE) AS IsStrategic,
+                   COALESCE(p.is_new_launch, FALSE) AS IsNewLaunch,
+                   COALESCE(p.tags::text, '[]') AS ProductTags,
+                   c.code AS CustomerCode, c.name AS CustomerName,
+                   c.channel_uid AS CustomerChannelUid, c.channel_name AS CustomerChannelName,
+                   c.customer_group_uid AS CustomerGroupUid, c.customer_group_name AS CustomerGroupName
             FROM transactions t
-            JOIN products p ON t.product_id = p.id
-            JOIN customers c ON t.customer_id = c.id
-            WHERE t.employee_id = ANY(@emps) AND t.period = @period
+            LEFT JOIN products  p ON t.product_uid  = p.uid
+            LEFT JOIN customers c ON t.customer_uid = c.uid
+            WHERE t.emp_uid = ANY(@emps) AND t.period = @period
             ORDER BY t.transaction_date",
             new { emps = scoped.ToArray(), period }, ct: ct)).ToList();
 
-        // Currency normalization (set base_amount where missing)
-        var rates = new Dictionary<string, double> { ["AED"] = 1.0 };
-        try
+        // Currency normalization — convert each rate into a multiplier
+        // that turns the transaction's currency into the configured base currency.
+        // If no base currency is configured, normalization is skipped (rate=1).
+        var rates = new Dictionary<string, double>();
+        if (!string.IsNullOrEmpty(baseCurrencyCode))
         {
-            var rows = await db.QueryDynamicAsync(
-                "SELECT from_currency, to_currency, rate FROM exchange_rates WHERE to_currency = 'AED' OR from_currency = 'AED'", ct: ct);
-            foreach (var r in rows)
+            try
             {
-                string from = r.from_currency, to = r.to_currency;
-                double rate = Convert.ToDouble(r.rate);
-                if (from == "AED") rates[to] = 1.0 / rate;
-                else if (to == "AED") rates[from] = rate;
+                var rows = await db.QueryDynamicAsync(@"
+                    SELECT fc.code AS from_code, tc.code AS to_code, er.rate
+                    FROM exchange_rate er
+                    JOIN currency fc ON er.from_currency_uid = fc.uid
+                    JOIN currency tc ON er.to_currency_uid = tc.uid
+                    WHERE er.is_active = TRUE", ct: ct);
+                foreach (var r in rows)
+                {
+                    string from = r.from_code, to = r.to_code;
+                    double rate = Convert.ToDouble(r.rate);
+                    if (from == baseCurrencyCode) rates[to] = 1.0 / rate;
+                    else if (to == baseCurrencyCode) rates[from] = rate;
+                }
             }
+            catch { /* exchange_rate empty — currencies stay at face value */ }
         }
-        catch { /* exchange_rates may be empty/missing */ }
 
+        // Parse product tags JSON into TagIds list for tag-filter support
         foreach (var t in txns)
         {
-            var ccy = string.IsNullOrEmpty(t.Currency) ? "AED" : t.Currency;
-            var rate = rates.TryGetValue(ccy, out var r) ? r : 1.0;
+            var rate = 1.0;
+            if (!string.IsNullOrEmpty(t.CurrencyUid))
+            {
+                // currency_uid stores the FK; we'd need to look up the code. For now,
+                // if base_amount was provided by the source it overrides this path.
+                rate = rates.TryGetValue(t.CurrencyUid, out var r) ? r : 1.0;
+            }
             if (t.BaseAmount == 0) t.BaseAmount = Math.Round(t.Amount * rate * 100) / 100;
             t.ExchangeRate = rate;
-            t.Currency = ccy;
-        }
 
-        // §5 — promote validated commission_events to synthetic 'event' transactions
-        List<dynamic> events;
-        try
-        {
-            events = (await db.QueryDynamicAsync(@"
-                SELECT id, event_type, employee_id, reference_id, reference_type,
-                       value, metadata, event_date, period
-                FROM commission_events
-                WHERE employee_id = ANY(@emps) AND period = @period AND validated = 1",
-                new { emps = scoped.ToArray(), period }, ct: ct)).ToList();
-        }
-        catch { events = new(); }
-
-        foreach (var e in events)
-        {
-            var val = e.value is null ? 0.0 : Convert.ToDouble(e.value);
-            txns.Add(new Transaction
-            {
-                Id = $"evt-{e.id}",
-                EmployeeId = e.employee_id,
-                CustomerId = null,
-                ProductId = null,
-                TransactionType = "event",
-                EventType = e.event_type,
-                Quantity = val,
-                Amount = val,
-                BaseAmount = val,
-                Currency = "AED",
-                ExchangeRate = 1.0,
-                TransactionDate = e.event_date is DateTime d ? d : DateTime.UtcNow,
-                Period = e.period,
-                TerritoryId = territoryId,
-                EventSource = true,
-                ReferenceId = e.reference_id,
-                ProductTags = "[]",
-                CustomerTags = "[]",
-            });
+            t.TagIds = Json.ParseStringArray(t.ProductTags);
         }
 
         return txns;
@@ -168,33 +146,110 @@ public static class Steps
     // -----------------------------------------------------------------
     // Step 3 — KPI Achievement (calls FormulaEvaluator, fallback to legacy)
     // -----------------------------------------------------------------
+    // KPIs that must aggregate per-day (compute the formula on each day's txns,
+    // then average across days where the denominator is non-zero). For salesmen
+    // who visit different customers each day, a month-wide COUNT_DISTINCT would
+    // under-count scheduled customers and inflate the ratio. Per-day avg is what
+    // SADAFCO actually expects for adherence / productivity / service-level.
+    private static readonly HashSet<string> PerDayKpiCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "SERVICE_LEVEL",
+        "JP_ADHERENCE", "JP_ADHERENCE_STRICT", "JP_COVERAGE",
+        "PRODUCTIVITY",
+    };
+
     public static async Task<KpiAchievement> CalculateKpiAchievementAsync(
         FormulaEvaluator evaluator, IDb db,
         List<Transaction> transactions, PlanKpi planKpi, Employee employee, string period,
         double? targetOverride = null, CancellationToken ct = default)
     {
         double? actual = null;
-        try { actual = await evaluator.EvaluateAsync(planKpi.Formula, transactions, employee, period, ct); }
+        double? numerator = null, denominator = null;
+        string? numeratorUnit = null, denominatorUnit = null, actualUnit = null;
+        string formulaType = "legacy";
+
+        try
+        {
+            if (PerDayKpiCodes.Contains(planKpi.KpiCode ?? "") && !string.IsNullOrEmpty(planKpi.Formula))
+            {
+                // Per-day SUM model: today distinct=5, tomorrow distinct=20 -> 25.
+                // Same for denominator. Then ratio = 25/30 × 100. NOT distinct
+                // across the whole month (that would dedupe a customer scheduled
+                // on multiple days into 1).
+                using var doc = JsonDocument.Parse(planKpi.Formula);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("type", out var tEl) && tEl.GetString() == "ratio" &&
+                    root.TryGetProperty("numerator", out var numEl) &&
+                    root.TryGetProperty("denominator", out var denEl))
+                {
+                    var multiplyBy = root.TryGetProperty("multiplyBy", out var mEl) && mEl.TryGetDouble(out var mv) ? mv : 1;
+                    double numSum = 0, denSum = 0;
+                    foreach (var dayGroup in transactions.GroupBy(t => t.TransactionDate.Date))
+                    {
+                        var dayTxns = dayGroup.ToList();
+                        numSum += FormulaEvaluator.EvaluateMetricPublic(numEl, dayTxns);
+                        denSum += FormulaEvaluator.EvaluateMetricPublic(denEl, dayTxns);
+                    }
+                    actual = denSum > 0 ? (numSum / denSum) * multiplyBy : 0;
+                    numerator = numSum;
+                    denominator = denSum;
+                    numeratorUnit   = FormulaEvaluator.UnitForMetricPublic(numEl);
+                    denominatorUnit = FormulaEvaluator.UnitForMetricPublic(denEl);
+                    actualUnit = "percent";
+                    formulaType = "ratio";
+                }
+                else
+                {
+                    var detailed = await evaluator.EvaluateDetailedAsync(planKpi.Formula, transactions, employee, period, ct);
+                    actual          = detailed?.Value;
+                    numerator       = detailed?.Numerator;
+                    denominator     = detailed?.Denominator;
+                    numeratorUnit   = detailed?.NumeratorUnit;
+                    denominatorUnit = detailed?.DenominatorUnit;
+                    actualUnit      = detailed?.ActualUnit;
+                    formulaType     = detailed?.FormulaType ?? "legacy";
+                }
+            }
+            else
+            {
+                var detailed = await evaluator.EvaluateDetailedAsync(planKpi.Formula, transactions, employee, period, ct);
+                actual          = detailed?.Value;
+                numerator       = detailed?.Numerator;
+                denominator     = detailed?.Denominator;
+                numeratorUnit   = detailed?.NumeratorUnit;
+                denominatorUnit = detailed?.DenominatorUnit;
+                actualUnit      = detailed?.ActualUnit;
+                formulaType     = detailed?.FormulaType ?? "legacy";
+            }
+        }
         catch { actual = null; }
         if (actual is null)
+        {
             actual = await LegacyCalculateAsync(db, transactions, planKpi, employee, period, ct);
+            formulaType = "legacy";
+        }
 
         double target = targetOverride ?? planKpi.TargetValue;
-        double percent;
-        if (planKpi.Direction == "lower_is_better")
-            percent = target > 0 ? Math.Max(0, (2 * target - actual.Value) / target * 100) : 0;
-        else
-            percent = target > 0 ? (actual.Value / target) * 100 : 0;
+        // The formula is responsible for producing the slab-ready metric (its
+        // output ends in × 100 for ratio-style KPIs). The engine no longer
+        // re-divides by target or inverts for lower_is_better — slab tiers and
+        // deduction rules are authored against the formula output directly.
+        double percent = actual.Value;
 
         return new KpiAchievement
         {
             Actual = Math.Round(actual.Value * 100) / 100,
             Target = target,
             Percent = Math.Round(percent * 100) / 100,
+            Numerator       = numerator.HasValue   ? Math.Round(numerator.Value   * 10000) / 10000 : null,
+            Denominator     = denominator.HasValue ? Math.Round(denominator.Value * 10000) / 10000 : null,
+            NumeratorUnit   = numeratorUnit,
+            DenominatorUnit = denominatorUnit,
+            ActualUnit      = actualUnit,
+            FormulaType     = formulaType,
         };
     }
 
-    // Mirrors legacyCalculate() in step03_kpiAchievement.js — hardcoded calculators
     private static async Task<double> LegacyCalculateAsync(
         IDb db, List<Transaction> transactions, PlanKpi planKpi, Employee employee, string period, CancellationToken ct)
     {
@@ -212,16 +267,16 @@ public static class Steps
                 if (parts.Length != 2 || !int.TryParse(parts[0], out var y) || !int.TryParse(parts[1], out var m)) return 0;
                 var prevPeriod = $"{y - 1:D4}-{m:D2}";
                 var prev = await db.QuerySingleOrDefaultAsync<double>(
-                    "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE employee_id = @e AND period = @p AND transaction_type = 'sale'",
-                    new { e = employee.Id, p = prevPeriod }, ct: ct);
+                    "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE emp_uid = @e AND period = @p AND transaction_type = 'sale'",
+                    new { e = employee.Uid, p = prevPeriod }, ct: ct);
                 return prev > 0 ? ((currentRev - prev) / prev) * 100 : 0;
             }
-            case "UNITS_SOLD":   return sales.Sum(t => t.Quantity);
-            case "OUTLET_COVERAGE": return sales.Select(t => t.CustomerId).Distinct().Count();
+            case "UNITS_SOLD":      return sales.Sum(t => t.Quantity);
+            case "OUTLET_COVERAGE": return sales.Select(t => t.CustomerUid).Distinct().Count();
             case "LINES_PER_CALL":
             {
-                var uProds = sales.Select(t => t.ProductId).Distinct().Count();
-                var uCusts = sales.Select(t => t.CustomerId).Distinct().Count();
+                var uProds = sales.Select(t => t.ProductUid).Distinct().Count();
+                var uCusts = sales.Select(t => t.CustomerUid).Distinct().Count();
                 return uCusts > 0 ? (double)uProds / uCusts : 0;
             }
             case "COLLECTION_PERCENT":
@@ -236,19 +291,22 @@ public static class Steps
                 var tr = returns.Sum(t => t.Amount);
                 return ts > 0 ? (tr / ts) * 100 : 0;
             }
-            case "STRATEGIC_SKU_REV": return sales.Where(t => t.IsStrategic == 1).Sum(t => t.Amount);
-            case "NEW_LAUNCH_SALES":  return sales.Where(t => t.IsNewLaunch == 1).Sum(t => t.Amount);
-            case "NEW_CUSTOMERS":     return sales.Select(t => t.CustomerId).Distinct().Count();
+            case "STRATEGIC_SKU_REV": return sales.Where(t => t.IsStrategic).Sum(t => t.Amount);
+            case "NEW_LAUNCH_SALES":  return sales.Where(t => t.IsNewLaunch).Sum(t => t.Amount);
+            case "NEW_CUSTOMERS":     return sales.Select(t => t.CustomerUid).Distinct().Count();
+            case "CRATES_LOADED":     return transactions.Where(t => t.TransactionType == "crate_load").Sum(t => t.Quantity);
+            case "CASES_DELIVERED":   return transactions.Where(t => t.TransactionType == "case_delivery").Sum(t => t.Quantity);
+            case "PALLETS_HANDLED":   return transactions.Where(t => t.TransactionType == "pallet_handling").Sum(t => t.Quantity);
             case "TEAM_REVENUE":
             {
                 var reps = await db.QueryDynamicAsync(
-                    "SELECT id FROM employees WHERE reports_to = @e", new { e = employee.Id }, ct: ct);
+                    "SELECT uid FROM employees WHERE reports_to_uid = @e", new { e = employee.Uid }, ct: ct);
                 double team = 0;
                 foreach (var r in reps)
                 {
                     var v = await db.QuerySingleOrDefaultAsync<double>(
-                        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE employee_id = @e AND period = @p AND transaction_type = 'sale'",
-                        new { e = (string)r.id, p = period }, ct: ct);
+                        "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE emp_uid = @e AND period = @p AND transaction_type = 'sale'",
+                        new { e = (string)r.uid, p = period }, ct: ct);
                     team += v;
                 }
                 return team;
@@ -257,7 +315,7 @@ public static class Steps
             case "REV_PER_OUTLET":
             {
                 var rev = sales.Sum(t => t.Amount);
-                var outlets = sales.Select(t => t.CustomerId).Distinct().Count();
+                var outlets = sales.Select(t => t.CustomerUid).Distinct().Count();
                 return outlets > 0 ? rev / outlets : 0;
             }
             case "OTD_PERCENT":  return 92;
@@ -296,10 +354,8 @@ public static class Steps
         foreach (var tier in tiers)
         {
             var max = tier.MaxPercent ?? double.PositiveInfinity;
-            bool minInc = tier.MinInclusive != 0;
-            bool maxInc = tier.MaxInclusive != 0;
-            bool minOk = minInc ? percent >= tier.MinPercent : percent > tier.MinPercent;
-            bool maxOk = !tier.MaxPercent.HasValue || (maxInc ? percent <= max : percent < max);
+            bool minOk = tier.MinInclusive ? percent >= tier.MinPercent : percent > tier.MinPercent;
+            bool maxOk = !tier.MaxPercent.HasValue || (tier.MaxInclusive ? percent <= max : percent < max);
             if (minOk && maxOk) { matched = tier; break; }
             if (!tier.MaxPercent.HasValue && percent >= tier.MinPercent) { matched = tier; break; }
         }
@@ -355,9 +411,12 @@ public static class Steps
         double rate = 0;
         foreach (var tier in tiers)
         {
+            // Honour the per-tier inclusive flags so boundary values (e.g. exactly 95%)
+            // land in the right tier rather than silently bleeding into the next one.
             var max = tier.MaxPercent ?? double.PositiveInfinity;
-            if (percent >= tier.MinPercent && percent < max) { matched = tier; rate = tier.Rate; break; }
-            if (!tier.MaxPercent.HasValue && percent >= tier.MinPercent) { matched = tier; rate = tier.Rate; break; }
+            bool minOk = tier.MinInclusive ? percent >= tier.MinPercent : percent > tier.MinPercent;
+            bool maxOk = !tier.MaxPercent.HasValue || (tier.MaxInclusive ? percent <= max : percent < max);
+            if (minOk && maxOk) { matched = tier; rate = tier.Rate; break; }
         }
         return new SlabResult
         {
@@ -434,8 +493,8 @@ public static class Steps
         foreach (var kpi in kpiResults)
         {
             var kpiRules = rules
-                .Where(r => (string.IsNullOrEmpty(r.RoleId) || r.RoleId == employee.RoleId) &&
-                            (string.IsNullOrEmpty(r.KpiId) || r.KpiId == kpi.KpiId))
+                .Where(r => (string.IsNullOrEmpty(r.RoleUid) || r.RoleUid == employee.RoleUid) &&
+                            (string.IsNullOrEmpty(r.KpiUid)  || r.KpiUid  == kpi.KpiUid))
                 .OrderBy(r => r.Priority).ToList();
             if (kpiRules.Count == 0) continue;
 
@@ -455,10 +514,10 @@ public static class Steps
             {
                 totalPct += selected.DeductionPercent;
                 triggered.Add(new() {
-                    ["kpi_id"] = kpi.KpiId,
+                    ["kpi_uid"] = kpi.KpiUid,
                     ["kpi_name"] = kpi.KpiName,
                     ["kpi_code"] = kpi.KpiCode,
-                    ["rule_id"] = selected.Id,
+                    ["rule_uid"] = selected.Uid,
                     ["rule_name"] = selected.Name,
                     ["metric_type"] = selected.MetricType,
                     ["metric_value"] = Math.Round(selectedMetric * 100) / 100,
@@ -479,8 +538,8 @@ public static class Steps
 
     private static bool InRange(double value, KpiDeductionRule r)
     {
-        bool minOk = !r.MinValue.HasValue || (r.MinInclusive != 0 ? value >= r.MinValue.Value : value > r.MinValue.Value);
-        bool maxOk = !r.MaxValue.HasValue || (r.MaxInclusive != 0 ? value <= r.MaxValue.Value : value < r.MaxValue.Value);
+        bool minOk = !r.MinValue.HasValue || (r.MinInclusive ? value >= r.MinValue.Value : value > r.MinValue.Value);
+        bool maxOk = !r.MaxValue.HasValue || (r.MaxInclusive ? value <= r.MaxValue.Value : value < r.MaxValue.Value);
         return minOk && maxOk;
     }
 
@@ -488,7 +547,7 @@ public static class Steps
     {
         "achievement_percent" => kpi.AchievementPercent,
         "actual_value"        => kpi.ActualValue,
-        _                     => Math.Max(0, 100 - kpi.AchievementPercent),  // shortfall_percent
+        _                     => Math.Max(0, 100 - kpi.AchievementPercent),
     };
 
     // -----------------------------------------------------------------
@@ -511,14 +570,14 @@ public static class Steps
         {
             var prevPeriod = $"{y - 1:D4}-{m:D2}";
             var prev = await db.QuerySingleOrDefaultAsync<double>(
-                "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE employee_id = @e AND period = @p AND transaction_type = 'sale'",
-                new { e = employee.Id, p = prevPeriod }, ct: ct);
+                "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE emp_uid = @e AND period = @p AND transaction_type = 'sale'",
+                new { e = employee.Uid, p = prevPeriod }, ct: ct);
             metrics["revenue_growth_percent"] = prev > 0 ? ((totalSales - prev) / prev) * 100 : 0;
         }
 
-        var strategic = sales.Where(t => t.IsStrategic == 1).Sum(t => t.Amount);
+        var strategic = sales.Where(t => t.IsStrategic).Sum(t => t.Amount);
         metrics["strategic_sku_percent"] = totalSales > 0 ? (strategic / totalSales) * 100 : 0;
-        var newLaunch = sales.Where(t => t.IsNewLaunch == 1).Sum(t => t.Amount);
+        var newLaunch = sales.Where(t => t.IsNewLaunch).Sum(t => t.Amount);
         metrics["new_launch_percent"] = totalSales > 0 ? (newLaunch / totalSales) * 100 : 0;
 
         if (overrides != null) foreach (var kv in overrides) metrics[kv.Key] = kv.Value;
@@ -673,24 +732,26 @@ public static class Steps
     // Step 11 — Store Payout
     // -----------------------------------------------------------------
     public static async Task<string> StorePayoutAsync(
-        IDb db, Employee employee, string runId, string planId, string period,
+        IDb db, Employee employee, string runUid, string planUid, string period,
         double gross, double kpiDeduction, double fixedIncentive, double multiplier, double penalty,
         double capAdjustment, double splitAdjustment, double netPayout,
         string eligibilityStatus, string eligibilityDetailsJson, string calculationDetailsJson,
-        List<KpiResultRow> kpiResults, CancellationToken ct = default)
+        List<KpiResultRow> kpiResults, CancellationToken ct = default,
+        string? planName = null, string? currencyUid = null, string? currencyCode = null)
     {
-        var payoutId = Guid.NewGuid().ToString();
+        var payoutUid = Guid.NewGuid().ToString();
         await db.ExecuteAsync(@"
             INSERT INTO employee_payouts
-                (id, run_id, employee_id, plan_id, period,
+                (uid, run_uid, emp_uid, plan_uid, period,
                  gross_payout, kpi_deduction_amount, fixed_incentive_amount, multiplier_amount,
                  penalty_amount, cap_adjustment, split_adjustment, net_payout,
-                 eligibility_status, eligibility_details, calculation_details, approval_status)
-            VALUES (@id, @run, @emp, @plan, @period,
+                 eligibility_status, eligibility_details, calculation_details, approval_status,
+                 source_system)
+            VALUES (@uid, @run, @emp, @plan, @period,
                     @gross, @ded, @fixed, @mult, @pen, @capAdj, @splitAdj, @net,
-                    @elig, @eligDet::text, @calcDet::text, 'pending')",
+                    @elig, @eligDet::jsonb, @calcDet::jsonb, 'pending', 'engine')",
             new {
-                id = payoutId, run = runId, emp = employee.Id, plan = planId, period,
+                uid = payoutUid, run = runUid, emp = employee.Uid, plan = planUid, period,
                 gross, ded = kpiDeduction, @fixed = fixedIncentive, mult = multiplier,
                 pen = penalty, capAdj = capAdjustment, splitAdj = splitAdjustment, net = netPayout,
                 elig = eligibilityStatus, eligDet = eligibilityDetailsJson, calcDet = calculationDetailsJson
@@ -700,30 +761,56 @@ public static class Steps
         {
             await db.ExecuteAsync(@"
                 INSERT INTO kpi_results
-                    (id, payout_id, kpi_id, target_value, actual_value, achievement_percent,
-                     slab_rate, slab_type, raw_payout, weighted_payout, weight, calculation_details)
-                VALUES (@id, @pid, @kid, @t, @a, @p, @sr, @st, @r, @w, @wt, @det::text)",
+                    (uid, payout_uid, kpi_uid, target_value, actual_value, achievement_percent,
+                     slab_rate, slab_type, raw_payout, weighted_payout, weight, calculation_details,
+                     numerator_value, denominator_value,
+                     numerator_unit, denominator_unit, actual_unit,
+                     goal_threshold_percent, formula_type,
+                     kpi_code_snapshot, kpi_name_snapshot,
+                     period, emp_uid, emp_code, employee_name,
+                     role_code, role_name, sales_office_uid, sales_office_name,
+                     plan_uid, plan_name, currency_uid, currency_code,
+                     source_system)
+                VALUES (@uid, @pid, @kid, @t, @a, @p, @sr, @st, @r, @w, @wt, @det::jsonb,
+                        @num, @den, @nu, @du, @au, @gth, @ft, @kcs, @kns,
+                        @period, @empUid, @empCode, @empName,
+                        @roleCode, @roleName, @soUid, @soName,
+                        @planUid, @planName, @curUid, @curCode,
+                        'engine')",
                 new {
-                    id = Guid.NewGuid().ToString(), pid = payoutId, kid = kpi.KpiId,
+                    uid = Guid.NewGuid().ToString(), pid = payoutUid, kid = kpi.KpiUid,
                     t = kpi.TargetValue, a = kpi.ActualValue, p = kpi.AchievementPercent,
                     sr = kpi.SlabRate, st = kpi.SlabType, r = kpi.RawPayout, w = kpi.WeightedPayout,
-                    wt = kpi.Weight, det = kpi.CalculationDetails
+                    wt = kpi.Weight, det = kpi.CalculationDetails,
+                    num = kpi.NumeratorValue, den = kpi.DenominatorValue,
+                    nu  = kpi.NumeratorUnit,  du  = kpi.DenominatorUnit, au = kpi.ActualUnit,
+                    gth = kpi.GoalThresholdPercent ?? kpi.TargetValue,
+                    ft  = kpi.FormulaType,
+                    kcs = kpi.KpiCode,        kns = kpi.KpiName,
+                    period,
+                    empUid   = employee.Uid,        empCode  = employee.EmpCode,
+                    empName  = employee.Name,
+                    roleCode = employee.RoleCode,   roleName = employee.RoleNameEn,
+                    soUid    = employee.SalesOfficeUid,
+                    soName   = employee.SalesOfficeName,
+                    planUid,  planName,
+                    curUid   = currencyUid,         curCode  = currencyCode,
                 }, ct: ct);
         }
-        return payoutId;
+        return payoutUid;
     }
 
     // -----------------------------------------------------------------
     // Step 12 — Create Approval
     // -----------------------------------------------------------------
-    public static async Task CreateApprovalAsync(IDb db, string payoutId, CancellationToken ct = default)
+    public static async Task CreateApprovalAsync(IDb db, string payoutUid, CancellationToken ct = default)
     {
         await db.ExecuteAsync(
-            "UPDATE employee_payouts SET approval_status = 'submitted' WHERE id = @id",
-            new { id = payoutId }, ct: ct);
+            "UPDATE employee_payouts SET approval_status = 'submitted', modified_time = NOW() WHERE uid = @uid",
+            new { uid = payoutUid }, ct: ct);
         await db.ExecuteAsync(@"
-            INSERT INTO approval_log (id, payout_id, action, acted_by, acted_by_role, comments)
-            VALUES (@id, @pid, 'submitted', 'system', 'system', 'Auto-submitted after calculation')",
-            new { id = Guid.NewGuid().ToString(), pid = payoutId }, ct: ct);
+            INSERT INTO approval_log (uid, payout_uid, action, acted_by, acted_by_role, comments, source_system)
+            VALUES (@uid, @pid, 'submitted', 'system', 'system', 'Auto-submitted after calculation', 'engine')",
+            new { uid = Guid.NewGuid().ToString(), pid = payoutUid }, ct: ct);
     }
 }

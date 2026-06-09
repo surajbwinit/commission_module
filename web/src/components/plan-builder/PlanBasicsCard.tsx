@@ -1,12 +1,12 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import Tip from '@/components/Tip';
 import { formatDate } from '@/lib/utils';
 
 interface Plan {
-  id: string;
+  uid: string;
   name: string;
   description?: string;
   status: string;
@@ -14,7 +14,14 @@ interface Plan {
   effective_from: string;
   effective_to: string;
   base_payout: number;
-  currency: string;
+  currency_uid?: string;
+}
+
+interface Currency {
+  uid: string;
+  code: string;
+  name: string;
+  symbol?: string;
 }
 
 export default function PlanBasicsCard({ plan, onChange }: { plan: Plan; onChange: () => void }) {
@@ -26,10 +33,16 @@ export default function PlanBasicsCard({ plan, onChange }: { plan: Plan; onChang
     effective_to: (plan.effective_to || '').slice(0, 10),
     base_payout: plan.base_payout,
     status: plan.status,
+    currency_uid: plan.currency_uid ?? '',
   });
   const [saving, setSaving] = useState(false);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
 
-  const dirty = JSON.stringify(draft) !== JSON.stringify({
+  useEffect(() => {
+    api.get<unknown, Currency[]>('/currency').then(setCurrencies).catch(() => {});
+  }, []);
+
+  const baseline = {
     name: plan.name,
     description: plan.description ?? '',
     plan_type: plan.plan_type,
@@ -37,12 +50,18 @@ export default function PlanBasicsCard({ plan, onChange }: { plan: Plan; onChang
     effective_to: (plan.effective_to || '').slice(0, 10),
     base_payout: plan.base_payout,
     status: plan.status,
-  });
+    currency_uid: plan.currency_uid ?? '',
+  };
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
 
   const save = async () => {
+    if (!draft.currency_uid) {
+      toast.error('Currency is required');
+      return;
+    }
     setSaving(true);
     try {
-      await api.put(`/plans/${plan.id}`, draft);
+      await api.put(`/plans/${plan.uid}`, draft);
       toast.success('Basics saved');
       onChange();
     } catch (e: any) {
@@ -87,6 +106,20 @@ export default function PlanBasicsCard({ plan, onChange }: { plan: Plan; onChang
           <input type="number" className="input w-full" value={draft.base_payout}
             onChange={(e) => setDraft({ ...draft, base_payout: parseFloat(e.target.value) || 0 })} />
         </Field>
+        <Field label={<span>Currency <span className="text-rose-500 normal-case">*</span></span>}>
+          <select
+            className="input w-full"
+            value={draft.currency_uid}
+            onChange={(e) => setDraft({ ...draft, currency_uid: e.target.value })}
+          >
+            <option value="">— select —</option>
+            {currencies.map((c) => (
+              <option key={c.uid} value={c.uid}>
+                {c.code}{c.symbol ? ` (${c.symbol})` : ''} — {c.name}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label="Description" full>
           <textarea className="input w-full" rows={2} value={draft.description}
             onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
@@ -94,13 +127,7 @@ export default function PlanBasicsCard({ plan, onChange }: { plan: Plan; onChang
       </div>
       {dirty && (
         <div className="mt-3 flex justify-end gap-2">
-          <button onClick={() => setDraft({
-            name: plan.name, description: plan.description ?? '',
-            plan_type: plan.plan_type,
-            effective_from: (plan.effective_from || '').slice(0, 10),
-            effective_to: (plan.effective_to || '').slice(0, 10),
-            base_payout: plan.base_payout, status: plan.status,
-          })} className="text-sm px-3 py-1.5 rounded-md text-fg-muted hover:bg-sunken">Discard</button>
+          <button onClick={() => setDraft(baseline)} className="text-sm px-3 py-1.5 rounded-md text-fg-muted hover:bg-sunken">Discard</button>
           <button onClick={save} disabled={saving} className="btn-primary btn-sm">
             {saving ? 'Saving…' : 'Save'}
           </button>

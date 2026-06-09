@@ -18,18 +18,20 @@ interface Props {
   currency?: string;
 }
 
-const RATE_TYPE_LABEL: Record<SlabTierInput['rate_type'], string> = {
-  percentage: '% of base',
-  fixed: 'fixed SAR',
-  per_unit: 'SAR per unit',
-  per_achievement_point: 'SAR per 1% above min',
+const rateTypeLabel = (rateType: SlabTierInput['rate_type']): string => {
+  switch (rateType) {
+    case 'percentage':            return '% of base';
+    case 'fixed':                 return 'fixed amount';
+    case 'per_unit':              return 'amount per unit';
+    case 'per_achievement_point': return 'amount per 1%';
+  }
 };
 
 /**
  * Visual editor for slab tiers (pay rate). Each tier is one row showing
  * a colored bar from min_percent to max_percent and the rate on the right.
  */
-export default function SlabLadder({ tiers, onChange, currency = 'SAR' }: Props) {
+export default function SlabLadder({ tiers, onChange, currency }: Props) {
   const update = (idx: number, patch: Partial<SlabTierInput>) => {
     const next = tiers.map((t, i) => (i === idx ? { ...t, ...patch } : t));
     onChange(next);
@@ -121,8 +123,8 @@ export default function SlabLadder({ tiers, onChange, currency = 'SAR' }: Props)
                 value={t.rate_type}
                 onChange={(e) => update(idx, { rate_type: e.target.value as SlabTierInput['rate_type'] })}
               >
-                {Object.entries(RATE_TYPE_LABEL).map(([k, label]) => (
-                  <option key={k} value={k}>{label}</option>
+                {(['percentage', 'fixed', 'per_unit', 'per_achievement_point'] as const).map((k) => (
+                  <option key={k} value={k}>{rateTypeLabel(k)}</option>
                 ))}
               </select>
 

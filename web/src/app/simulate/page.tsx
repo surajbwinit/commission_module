@@ -14,11 +14,11 @@ import EmptyState from '@/components/ui/EmptyState';
 import { Badge } from '@/components/ui/Pill';
 import PageHero from '@/components/layout/PageHero';
 
-interface Plan { id: string; name: string; status: string; base_payout: number; }
+interface Plan { uid: string; name: string; status: string; base_payout: number; }
 
 interface RunResult {
-  run_id: string; total_payout: number; employee_count: number;
-  payouts: { employee_id: string; employee_name: string; net_payout: number }[];
+  run_uid: string; total_payout: number; employee_count: number;
+  payouts: { emp_uid: string; employee_name: string; net_payout: number }[];
 }
 
 type Inputs = { basePayout: number; targetMultiplier: number; strategicSkuPct: number };
@@ -26,7 +26,7 @@ type Inputs = { basePayout: number; targetMultiplier: number; strategicSkuPct: n
 export default function SimulatePage() {
   const { selectedPeriod } = useAppStore();
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [planId, setPlanId] = useState('');
+  const [planUid, setPlanUid] = useState('');
 
   // Inputs (mutated by sliders)
   const [inputs, setInputs] = useState<Inputs>({ basePayout: 15000, targetMultiplier: 100, strategicSkuPct: 20 });
@@ -45,27 +45,27 @@ export default function SimulatePage() {
       const active = all.filter((p) => p.status === 'active');
       setPlans(active);
       if (active.length > 0) {
-        setPlanId(active[0].id);
+        setPlanUid(active[0].uid);
       } else {
-        setPlanId('');
+        setPlanUid('');
       }
     });
   }, []);
 
   useEffect(() => {
-    const p = plans.find((x) => x.id === planId);
+    const p = plans.find((x) => x.uid === planUid);
     if (p) setInputs((x) => ({ ...x, basePayout: p.base_payout || 15000 }));
     setBaseline(null); setSim(null); setLastRunInputs(null);
-  }, [planId, plans]);
+  }, [planUid, plans]);
 
   const runBoth = async (i: Inputs = inputs) => {
-    if (!planId) return;
+    if (!planUid) return;
     setRunning(true);
     try {
-      const b = await api.post<unknown, RunResult>('/simulation/run', { planId, period: selectedPeriod });
+      const b = await api.post<unknown, RunResult>('/simulation/run', { planUid, period: selectedPeriod });
       setBaseline(b);
       const s = await api.post<unknown, RunResult>('/simulation/run', {
-        planId, period: selectedPeriod,
+        planUid, period: selectedPeriod,
         overrides: {
           base_payout: i.basePayout,
           multipliers: { strategic_sku_percent: i.strategicSkuPct },
@@ -99,7 +99,7 @@ export default function SimulatePage() {
   // Comparison data
   const compareData = baseline && sim
     ? baseline.payouts.map((b) => {
-        const s = sim.payouts.find((x) => x.employee_id === b.employee_id);
+        const s = sim.payouts.find((x) => x.emp_uid === b.emp_uid);
         return {
           name: b.employee_name.split(' ').slice(0, 2).join(' '),
           baseline: b.net_payout,
@@ -113,7 +113,7 @@ export default function SimulatePage() {
   const pctChange = baseline && sim && baseline.total_payout > 0 ? (totalDiff / baseline.total_payout) * 100 : 0;
   const affectedCount = baseline && sim
     ? baseline.payouts.filter((b) => {
-        const s = sim.payouts.find((x) => x.employee_id === b.employee_id);
+        const s = sim.payouts.find((x) => x.emp_uid === b.emp_uid);
         return Math.abs((s?.net_payout ?? 0) - b.net_payout) > 0.01;
       }).length
     : 0;
@@ -121,20 +121,18 @@ export default function SimulatePage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHero
-        eyebrow="What-if"
         title="Simulate"
-        subtitle="Tweak parameters, preview the budget impact, compare against the baseline. No approvals are created."
-        accessory={<Badge tone="purple"><Sparkles className="w-3 h-3" /> Sandbox</Badge>}
+        accessory={<Badge tone="soft"><Sparkles className="w-3 h-3" /> Sandbox</Badge>}
       />
 
       <section className="rounded-xl border bg-card shadow-sm p-6">
         <div className="grid md:grid-cols-[1fr_auto] gap-4 items-end mb-6">
           <label className="block">
             <span className="label">Plan <span className="font-normal text-muted-foreground">(active only)</span></span>
-            <select className="input" value={planId} onChange={(e) => setPlanId(e.target.value)} disabled={plans.length === 0}>
+            <select className="input" value={planUid} onChange={(e) => setPlanUid(e.target.value)} disabled={plans.length === 0}>
               {plans.length === 0
                 ? <option>No active plans</option>
-                : plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                : plans.map((p) => <option key={p.uid} value={p.uid}>{p.name}</option>)}
             </select>
           </label>
           <div className="flex items-center gap-2">
@@ -143,7 +141,7 @@ export default function SimulatePage() {
                 <AlertCircle className="h-3 w-3" /> Stale — re-running…
               </span>
             )}
-            <button onClick={() => runBoth()} disabled={running || !planId}
+            <button onClick={() => runBoth()} disabled={running || !planUid}
               className={cn('btn-primary btn-lg whitespace-nowrap', stale && !running && 'ring-2 ring-primary/40')}>
               {running ? <><Loader2 className="h-4 w-4 animate-spin" /> Simulating…</>
                        : <><Play className="h-4 w-4" /> {lastRunInputs ? 'Re-run' : 'Run simulation'}</>}

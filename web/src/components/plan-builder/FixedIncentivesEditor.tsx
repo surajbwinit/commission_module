@@ -6,37 +6,38 @@ import toast from 'react-hot-toast';
 import Tip from '@/components/Tip';
 
 interface FixedIncentive {
-  id?: string;
-  role_id?: string | null;
+  uid?: string;
+  role_uid?: string | null;
   role_name?: string | null;
   period?: string | null;
   name: string;
   amount: number;
-  condition_kpi_id?: string | null;
+  condition_kpi_uid?: string | null;
   condition_kpi_name?: string | null;
   condition_operator?: string | null;
   condition_value?: number | null;
-  is_active?: number;
+  is_active?: boolean;
 }
 
 interface Plan {
-  id: string;
+  uid: string;
   fixed_incentives?: FixedIncentive[];
-  currency?: string;
+  currency_uid?: string;
+  currency_code?: string;
 }
 
-interface KpiDef { id: string; name: string; code: string; }
-interface Role { id: string; name: string; }
+interface KpiDef { uid: string; name: string; code: string; }
+interface Role { uid: string; role_name_en: string; }
 
 const blank = (): FixedIncentive => ({
-  role_id: null,
+  role_uid: null,
   period: '',
   name: '',
   amount: 0,
-  condition_kpi_id: null,
+  condition_kpi_uid: null,
   condition_operator: '>=',
   condition_value: 0,
-  is_active: 1,
+  is_active: true,
 });
 
 export default function FixedIncentivesEditor({ plan, onChange }: { plan: Plan; onChange: () => void }) {
@@ -61,16 +62,16 @@ export default function FixedIncentivesEditor({ plan, onChange }: { plan: Plan; 
   const save = async () => {
     setSaving(true);
     try {
-      await api.put(`/plans/${plan.id}/fixed-incentives`, {
+      await api.put(`/plans/${plan.uid}/fixed-incentives`, {
         incentives: draft.map((r) => ({
-          roleId: r.role_id || null,
+          roleUid: r.role_uid || null,
           period: r.period || null,
           name: r.name,
           amount: Number(r.amount) || 0,
-          conditionKpiId: r.condition_kpi_id || null,
+          conditionKpiUid: r.condition_kpi_uid || null,
           conditionOperator: r.condition_operator || '>=',
           conditionValue: r.condition_value == null ? null : Number(r.condition_value),
-          isActive: r.is_active ?? 1,
+          isActive: r.is_active ?? true,
         })),
       });
       toast.success('Fixed bonuses saved');
@@ -79,7 +80,7 @@ export default function FixedIncentivesEditor({ plan, onChange }: { plan: Plan; 
     finally { setSaving(false); }
   };
 
-  const currency = plan.currency || 'SAR';
+  const currency = plan.currency_code;
 
   return (
     <section className="card p-5">
@@ -112,7 +113,7 @@ export default function FixedIncentivesEditor({ plan, onChange }: { plan: Plan; 
       ) : (
         <div className="space-y-3">
           {draft.map((row, i) => (
-            <div key={row.id ?? i} className="border border-line rounded-lg p-3 bg-sunken/40 space-y-2">
+            <div key={row.uid ?? i} className="border border-slate-200 rounded-lg p-3 bg-slate-50/60 space-y-2 dark:border-slate-700 dark:bg-slate-800/40">
               <div className="flex items-start gap-2 flex-wrap">
                 <label className="flex-1 min-w-[180px]">
                   <span className="block text-2xs uppercase text-fg-muted mb-1">Name</span>
@@ -124,7 +125,7 @@ export default function FixedIncentivesEditor({ plan, onChange }: { plan: Plan; 
                   />
                 </label>
                 <label className="w-32">
-                  <span className="block text-2xs uppercase text-fg-muted mb-1">Amount ({currency})</span>
+                  <span className="block text-2xs uppercase text-fg-muted mb-1">Amount {currency ? `(${currency})` : ''}</span>
                   <input
                     type="number"
                     className="input text-sm"
@@ -145,11 +146,11 @@ export default function FixedIncentivesEditor({ plan, onChange }: { plan: Plan; 
                   <span className="block text-2xs uppercase text-fg-muted mb-1">Role (optional)</span>
                   <select
                     className="input text-sm"
-                    value={row.role_id ?? ''}
-                    onChange={(e) => update(i, { role_id: e.target.value || null })}
+                    value={row.role_uid ?? ''}
+                    onChange={(e) => update(i, { role_uid: e.target.value || null })}
                   >
                     <option value="">All roles</option>
-                    {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    {roles.map((r) => <option key={r.uid} value={r.uid}>{r.role_name_en}</option>)}
                   </select>
                 </label>
                 <button
@@ -167,11 +168,11 @@ export default function FixedIncentivesEditor({ plan, onChange }: { plan: Plan; 
                   <span className="block text-2xs uppercase text-fg-muted mb-1">Condition KPI</span>
                   <select
                     className="input text-sm"
-                    value={row.condition_kpi_id ?? ''}
-                    onChange={(e) => update(i, { condition_kpi_id: e.target.value || null })}
+                    value={row.condition_kpi_uid ?? ''}
+                    onChange={(e) => update(i, { condition_kpi_uid: e.target.value || null })}
                   >
                     <option value="">— Unconditional —</option>
-                    {kpis.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+                    {kpis.map((k) => <option key={k.uid} value={k.uid}>{k.name}</option>)}
                   </select>
                 </label>
                 <label className="w-20">
@@ -180,7 +181,7 @@ export default function FixedIncentivesEditor({ plan, onChange }: { plan: Plan; 
                     className="input text-sm"
                     value={row.condition_operator ?? '>='}
                     onChange={(e) => update(i, { condition_operator: e.target.value })}
-                    disabled={!row.condition_kpi_id}
+                    disabled={!row.condition_kpi_uid}
                   >
                     <option value=">=">{'>='}</option>
                     <option value="<=">{'<='}</option>
@@ -196,7 +197,7 @@ export default function FixedIncentivesEditor({ plan, onChange }: { plan: Plan; 
                     className="input text-sm"
                     value={row.condition_value ?? ''}
                     onChange={(e) => update(i, { condition_value: e.target.value === '' ? null : Number(e.target.value) })}
-                    disabled={!row.condition_kpi_id}
+                    disabled={!row.condition_kpi_uid}
                   />
                 </label>
               </div>

@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface PenaltyRule {
-  id?: string;
+  uid?: string;
   name: string;
   trigger_metric: string;
   trigger_operator: string;
@@ -15,7 +15,7 @@ interface PenaltyRule {
 }
 
 interface Plan {
-  id: string;
+  uid: string;
   penalty_rules?: PenaltyRule[];
 }
 
@@ -58,7 +58,7 @@ export default function PenaltiesEditor({ plan, onChange }: { plan: Plan; onChan
   const save = async () => {
     setSaving(true);
     try {
-      await api.put(`/plans/${plan.id}/penalties`, {
+      await api.put(`/plans/${plan.uid}/penalties`, {
         rules: draft.map((r) => ({
           name: r.name,
           triggerMetric: r.trigger_metric,
@@ -103,7 +103,7 @@ export default function PenaltiesEditor({ plan, onChange }: { plan: Plan; onChan
       ) : (
         <div className="space-y-2">
           {draft.map((rule, i) => (
-            <div key={rule.id ?? i} className="flex items-end gap-2 flex-wrap border border-line rounded-lg p-3 bg-sunken/40">
+            <div key={rule.uid ?? i} className="flex items-end gap-2 flex-wrap border border-slate-200 rounded-lg p-3 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40">
               <label className="flex-1 min-w-[180px]">
                 <span className="block text-2xs uppercase text-fg-muted mb-1">Name</span>
                 <input

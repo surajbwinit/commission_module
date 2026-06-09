@@ -5,22 +5,22 @@ import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
 interface MonthlyTarget {
-  id?: string;
-  kpi_id: string;
+  uid?: string;
+  kpi_uid: string;
   kpi_name?: string;
-  role_id?: string | null;
+  role_uid?: string | null;
   role_name?: string | null;
   period: string;          // YYYY-MM
   target_value: number;
 }
 
 interface Plan {
-  id: string;
+  uid: string;
   monthly_targets?: MonthlyTarget[];
-  kpis?: { kpi_id: string; kpi_name: string }[];
+  kpis?: { kpi_uid: string; kpi_name: string }[];
 }
 
-interface Role { id: string; name: string; }
+interface Role { uid: string; role_name_en: string; }
 
 const currentMonth = () => {
   const d = new Date();
@@ -47,17 +47,17 @@ export default function MonthlyTargetsEditor({ plan, onChange }: { plan: Plan; o
     const firstKpi = planKpis[0];
     if (!firstKpi) { toast.error('Add KPIs to this plan before overriding targets.'); return; }
     setDraft([...draft, {
-      kpi_id: firstKpi.kpi_id, role_id: null, period: currentMonth(), target_value: 0,
+      kpi_uid: firstKpi.kpi_uid, role_uid: null, period: currentMonth(), target_value: 0,
     }]);
   };
 
   const save = async () => {
     setSaving(true);
     try {
-      await api.put(`/plans/${plan.id}/monthly-targets`, {
+      await api.put(`/plans/${plan.uid}/monthly-targets`, {
         targets: draft.map((r) => ({
-          kpiId: r.kpi_id,
-          roleId: r.role_id || null,
+          kpiUid: r.kpi_uid,
+          roleUid: r.role_uid || null,
           period: r.period,
           targetValue: Number(r.target_value) || 0,
         })),
@@ -72,8 +72,8 @@ export default function MonthlyTargetsEditor({ plan, onChange }: { plan: Plan; o
     <section className="card p-5">
       <header className="mb-4 flex items-start justify-between">
         <div>
-          <h3 className="text-base font-semibold">Monthly target overrides</h3>
-          <p className="text-xs text-fg-muted mt-0.5">
+          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">Monthly target overrides</h3>
+          <p className="text-xs text-slate-500 mt-0.5">
             Override the plan's default KPI target for a specific month (and optionally a specific role).
           </p>
         </div>
@@ -90,16 +90,16 @@ export default function MonthlyTargetsEditor({ plan, onChange }: { plan: Plan; o
       </header>
 
       {draft.length === 0 ? (
-        <div className="text-center py-8 text-fg-subtle">
+        <div className="text-center py-8 text-slate-400">
           <CalendarDays className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p className="text-sm">No overrides. Plan-level targets apply to every month.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {draft.map((row, i) => (
-            <div key={row.id ?? i} className="flex items-end gap-2 flex-wrap border border-line rounded-lg p-3 bg-sunken/40">
+            <div key={row.uid ?? i} className="flex items-end gap-2 flex-wrap border border-slate-200 rounded-lg p-3 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40">
               <label className="w-32">
-                <span className="block text-2xs uppercase text-fg-muted mb-1">Period</span>
+                <span className="block text-2xs uppercase text-slate-500 mb-1">Period</span>
                 <input
                   type="month"
                   className="input text-sm"
@@ -108,28 +108,28 @@ export default function MonthlyTargetsEditor({ plan, onChange }: { plan: Plan; o
                 />
               </label>
               <label className="w-56">
-                <span className="block text-2xs uppercase text-fg-muted mb-1">KPI</span>
+                <span className="block text-2xs uppercase text-slate-500 mb-1">KPI</span>
                 <select
                   className="input text-sm"
-                  value={row.kpi_id}
-                  onChange={(e) => update(i, { kpi_id: e.target.value })}
+                  value={row.kpi_uid}
+                  onChange={(e) => update(i, { kpi_uid: e.target.value })}
                 >
-                  {planKpis.map((k) => <option key={k.kpi_id} value={k.kpi_id}>{k.kpi_name}</option>)}
+                  {planKpis.map((k) => <option key={k.kpi_uid} value={k.kpi_uid}>{k.kpi_name}</option>)}
                 </select>
               </label>
               <label className="w-44">
-                <span className="block text-2xs uppercase text-fg-muted mb-1">Role (optional)</span>
+                <span className="block text-2xs uppercase text-slate-500 mb-1">Role (optional)</span>
                 <select
                   className="input text-sm"
-                  value={row.role_id ?? ''}
-                  onChange={(e) => update(i, { role_id: e.target.value || null })}
+                  value={row.role_uid ?? ''}
+                  onChange={(e) => update(i, { role_uid: e.target.value || null })}
                 >
                   <option value="">All roles</option>
-                  {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  {roles.map((r) => <option key={r.uid} value={r.uid}>{r.role_name_en}</option>)}
                 </select>
               </label>
               <label className="w-32">
-                <span className="block text-2xs uppercase text-fg-muted mb-1">Target value</span>
+                <span className="block text-2xs uppercase text-slate-500 mb-1">Target value</span>
                 <input
                   type="number"
                   className="input text-sm"

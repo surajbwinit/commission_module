@@ -12,13 +12,13 @@ import PageHero from '@/components/layout/PageHero';
 import { Pagination } from '@/components/ui/Pagination';
 
 interface AuditRow {
-  id: string;
+  uid: string;
   entity_type: string;
-  entity_id: string;
+  entity_uid: string;
   action: string;
   changes: string;
   performed_by?: string;
-  performed_at: string;
+  performed_time: string;
 }
 
 const ACTION_META: Record<string, { tone: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'purple'; icon: React.ComponentType<{ className?: string }> }> = {
@@ -44,7 +44,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     setLoading(true);
-    const url = filter === 'all' ? '/audit?limit=500' : `/audit?entity_type=${filter}&limit=500`;
+    const url = filter === 'all' ? '/audit?limit=500' : `/audit?entityType=${filter}&limit=500`;
     api.get<unknown, AuditRow[]>(url)
       .then(setRows)
       .catch(() => setRows([]))
@@ -62,12 +62,7 @@ export default function HistoryPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <PageHero
-        eyebrow="Lookup"
-        title="Audit"
-        emphasis="history"
-        subtitle="Immutable log of every change to plans, payouts and approvals."
-      />
+      <PageHero title="Audit Trail" />
 
       <PillTabs
         value={filter}
@@ -87,9 +82,9 @@ export default function HistoryPage() {
           {pagedRows.map((r) => {
             const meta = ACTION_META[r.action] ?? { tone: 'neutral' as const, icon: Clock };
             const Icon = meta.icon;
-            const isExpanded = expanded === r.id;
+            const isExpanded = expanded === r.uid;
             return (
-              <li key={r.id} className="relative">
+              <li key={r.uid} className="relative">
                 <span className={cn('absolute -left-[18px] top-3 w-3.5 h-3.5 rounded-full ring-2 ring-background',
                   meta.tone === 'success' ? 'bg-emerald-400'
                   : meta.tone === 'danger' ? 'bg-rose-400'
@@ -100,17 +95,17 @@ export default function HistoryPage() {
                   : 'bg-neutral-300'
                 )} />
                 <article className={cn('card transition-all', isExpanded && 'ring-1 ring-primary/40')}>
-                  <button onClick={() => setExpanded(isExpanded ? null : r.id)}
+                  <button onClick={() => setExpanded(isExpanded ? null : r.uid)}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-sunken/60 rounded-xl">
                     <Icon className="w-4 h-4 text-fg-subtle shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge tone={meta.tone}>{r.action.replace(/_/g, ' ')}</Badge>
                         <Badge tone="soft">{r.entity_type}</Badge>
-                        <span className="text-2xs font-mono text-fg-subtle truncate">{r.entity_id}</span>
+                        <span className="text-2xs font-mono text-fg-subtle truncate">{r.entity_uid}</span>
                       </div>
                       <div className="text-2xs text-fg-muted mt-0.5">
-                        {formatDateTime(r.performed_at)} {r.performed_by && <span>· by <span className="text-fg">{r.performed_by}</span></span>}
+                        {formatDateTime(r.performed_time)} {r.performed_by && <span>· by <span className="text-fg">{r.performed_by}</span></span>}
                       </div>
                     </div>
                     {isExpanded ? <ChevronDown className="w-4 h-4 text-fg-subtle" /> : <ChevronRight className="w-4 h-4 text-fg-subtle" />}

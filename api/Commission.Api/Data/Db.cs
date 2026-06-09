@@ -5,9 +5,11 @@ using Dapper;
 namespace Commission.Api.Data;
 
 /// <summary>
-/// Connection factory + lightweight DB facade.
-/// All access goes through Dapper — no Entity Framework. Raw SQL only.
-/// Mirrors the JS getDb() shape so the calc engine port stays close to the original.
+/// Connection factory + Dapper facade. Raw SQL only, no EF.
+///
+/// Two distinct interfaces — IDb (the commission DB, read+write) and
+/// ISourceDb (the nfpcproduct ERP, read-only, for ETL). Both implementations
+/// share Db's plumbing; only the connection string differs.
 /// </summary>
 public interface IDb
 {
@@ -20,15 +22,19 @@ public interface IDb
     Task InTransactionAsync(Func<IDbConnection, IDbTransaction, Task> work, CancellationToken ct = default);
 }
 
-public class Db : IDb
+/// <summary>
+/// Read-only handle to the source ERP (nfpcproduct). ETL syncers depend on this.
+/// Same surface as IDb so callers can use the same Dapper helpers.
+/// </summary>
+public interface ISourceDb : IDb { }
+
+public abstract class DbBase : IDb
 {
-    private readonly string _connectionString;
-    public Db(IConfiguration config)
+    protected readonly string _connectionString;
+    protected DbBase(string connectionString)
     {
-        _connectionString = config.GetConnectionString("Default")
-            ?? Environment.GetEnvironmentVariable("DATABASE_URL")
-            ?? throw new InvalidOperationException(
-                "DATABASE_URL not set. Provide ConnectionStrings:Default in appsettings.json or DATABASE_URL env var.");
+        _connectionString = connectionString
+            ?? throw new InvalidOperationException("Connection string is null.");
     }
 
     public async Task<IDbConnection> OpenAsync(CancellationToken ct = default)
@@ -70,21 +76,36 @@ public class Db : IDb
     {
         using var conn = await OpenAsync(ct);
         using var tx = conn.BeginTransaction();
-        try
-        {
-            var result = await work(conn, tx);
-            tx.Commit();
-            return result;
-        }
-        catch
-        {
-            tx.Rollback();
-            throw;
-        }
+        try { var result = await work(conn, tx); tx.Commit(); return result; }
+        catch { tx.Rollback(); throw; }
     }
 
     public async Task InTransactionAsync(Func<IDbConnection, IDbTransaction, Task> work, CancellationToken ct = default)
     {
         await InTransactionAsync<bool>(async (c, t) => { await work(c, t); return true; }, ct);
+    }
+}
+
+/// <summary>The primary commission DB connection (read+write). Resolves from ConnectionStrings:Default.</summary>
+public class Db : DbBase, IDb
+{
+    public Db(IConfiguration config) : base(
+        config.GetConnectionString("Default")
+            ?? Environment.GetEnvironmentVariable("DATABASE_URL")
+            ?? throw new InvalidOperationException(
+                "Commission DB connection string missing. Set ConnectionStrings:Default or DATABASE_URL."))
+    {
+    }
+}
+
+/// <summary>The source ERP connection (read-only). Resolves from ConnectionStrings:Source.</summary>
+public class SourceDb : DbBase, ISourceDb
+{
+    public SourceDb(IConfiguration config) : base(
+        config.GetConnectionString("Source")
+            ?? Environment.GetEnvironmentVariable("SOURCE_DATABASE_URL")
+            ?? throw new InvalidOperationException(
+                "Source DB connection string missing. Set ConnectionStrings:Source or SOURCE_DATABASE_URL."))
+    {
     }
 }

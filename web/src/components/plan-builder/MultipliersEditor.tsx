@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import Tip from '@/components/Tip';
 
 interface MultRule {
-  id?: string;
+  uid?: string;
   name: string;
   type: string;
   condition_metric: string;
@@ -17,7 +17,7 @@ interface MultRule {
 }
 
 interface Plan {
-  id: string;
+  uid: string;
   multiplier_rules?: MultRule[];
 }
 
@@ -61,7 +61,7 @@ export default function MultipliersEditor({ plan, onChange }: { plan: Plan; onCh
   const save = async () => {
     setSaving(true);
     try {
-      await api.put(`/plans/${plan.id}/multipliers`, {
+      await api.put(`/plans/${plan.uid}/multipliers`, {
         rules: draft.map((r) => ({
           name: r.name,
           type: r.type,
@@ -109,7 +109,7 @@ export default function MultipliersEditor({ plan, onChange }: { plan: Plan; onCh
       ) : (
         <div className="space-y-3">
           {draft.map((rule, i) => (
-            <div key={rule.id ?? i} className="border border-line rounded-lg p-3 bg-sunken/40 space-y-2">
+            <div key={rule.uid ?? i} className="border border-slate-200 rounded-lg p-3 bg-slate-50/60 space-y-2 dark:border-slate-700 dark:bg-slate-800/40">
               <div className="flex items-start gap-2">
                 <label className="flex-1">
                   <span className="block text-2xs uppercase text-fg-muted mb-1">Name</span>

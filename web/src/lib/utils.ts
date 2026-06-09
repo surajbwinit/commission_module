@@ -3,8 +3,20 @@ import { twMerge } from 'tailwind-merge';
 
 export const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
-export const formatCurrency = (value: number | null | undefined, currency = 'AED') => {
+/**
+ * Format a money value.
+ *   - Pass the ISO currency code from the data (e.g. plan.currency_code).
+ *   - When currency is missing, the number is shown plain (no symbol/prefix).
+ *   - No hardcoded default: there is no "house currency" — the data drives it.
+ */
+export const formatCurrency = (value: number | null | undefined, currency?: string | null) => {
   if (value == null) return '—';
+  if (!currency) {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
@@ -13,10 +25,16 @@ export const formatCurrency = (value: number | null | undefined, currency = 'AED
   }).format(value);
 };
 
-/** Compact currency for tight displays (e.g. 2.52M AED). Falls back to full for < 10k. */
-export const formatCurrencyCompact = (value: number | null | undefined, currency = 'AED') => {
+/** Compact currency for tight displays (e.g. 2.52M). Falls back to full for < 10k. */
+export const formatCurrencyCompact = (value: number | null | undefined, currency?: string | null) => {
   if (value == null) return '—';
   if (Math.abs(value) < 10_000) return formatCurrency(value, currency);
+  if (!currency) {
+    return new Intl.NumberFormat('en-US', {
+      notation: 'compact',
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,

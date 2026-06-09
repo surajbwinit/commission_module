@@ -1,6 +1,6 @@
 namespace Commission.Api.Engine;
 
-/// <summary>Port of server/src/engine/eligibilityEngine.js</summary>
+/// <summary>Eligibility check — pure in-memory, no DB.</summary>
 public class EligibilityEngine
 {
     public EligibilityResult Check(List<Transaction> transactions, List<EligibilityRule> rules)
@@ -8,9 +8,9 @@ public class EligibilityEngine
         if (rules is null || rules.Count == 0)
             return new EligibilityResult { Status = "eligible", Reduction = 0 };
 
-        var sales        = transactions.Where(t => t.TransactionType == "sale").ToList();
-        var returns      = transactions.Where(t => t.TransactionType == "return").ToList();
-        var collections  = transactions.Where(t => t.TransactionType == "collection").ToList();
+        var sales       = transactions.Where(t => t.TransactionType == "sale").ToList();
+        var returns     = transactions.Where(t => t.TransactionType == "return").ToList();
+        var collections = transactions.Where(t => t.TransactionType == "collection").ToList();
 
         double totalSales       = sales.Sum(t => t.Amount);
         double totalReturns     = returns.Sum(t => t.Amount);
@@ -21,8 +21,8 @@ public class EligibilityEngine
             ["min_sales"]              = totalSales,
             ["min_collection_percent"] = totalSales > 0 ? (totalCollections / totalSales) * 100 : 0,
             ["max_return_percent"]     = totalSales > 0 ? (totalReturns     / totalSales) * 100 : 0,
-            ["min_active_days"]        = 22,   // matches JS default constant
-            ["min_lines_sold"]         = sales.Select(t => t.ProductId).Where(p => p != null).Distinct().Count()
+            ["min_active_days"]        = 22,
+            ["min_lines_sold"]         = sales.Select(t => t.ProductUid).Where(p => p != null).Distinct().Count()
         };
 
         var status = "eligible";

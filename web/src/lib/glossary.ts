@@ -19,11 +19,11 @@ export const glossary: Record<string, GlossaryEntry> = {
   slab: {
     label: 'Pay rate',
     tip: 'How much the employee earns at different levels of target achievement. Higher achievement = higher rate.',
-    example: '85-95% achievement → 150 SAR per 1% above 85%',
+    example: '85-95% achievement → 150 per 1% above 85% (in plan currency)',
   },
   slab_tier: {
     label: 'Rate band',
-    tip: 'One row in the pay-rate ladder — a range (e.g. 85-95%) with a rate (e.g. 150 SAR).',
+    tip: 'One row in the pay-rate ladder — a range (e.g. 85-95%) with a rate (e.g. 150 in the plan currency).',
   },
   kpi_deduction: {
     label: 'Deduction band',
@@ -33,7 +33,7 @@ export const glossary: Record<string, GlossaryEntry> = {
   eligibility: {
     label: 'Qualifier',
     tip: 'A minimum bar the employee must clear to receive any commission. Fail any qualifier → zero or reduced payout.',
-    example: 'Minimum monthly sales: 10,000 SAR',
+    example: 'Minimum monthly sales: 10,000 (plan currency)',
   },
   multiplier: {
     label: 'Bonus',
@@ -42,7 +42,7 @@ export const glossary: Record<string, GlossaryEntry> = {
   capping: {
     label: 'Maximum payout',
     tip: 'Hard ceiling on what a single employee can earn from this plan in one period.',
-    example: 'Max 10,000 SAR per plan / 150% of base salary',
+    example: 'Max 10,000 per plan / 150% of base salary',
   },
   split: {
     label: 'Role split',
@@ -50,7 +50,7 @@ export const glossary: Record<string, GlossaryEntry> = {
   },
   fixed_incentive: {
     label: 'Fixed bonus',
-    tip: 'A flat amount paid when a condition is met — e.g. 500 SAR if you onboard 5 new customers.',
+    tip: 'A flat amount paid when a condition is met — e.g. 500 if you onboard 5 new customers.',
   },
   mapping_filter: {
     label: 'What transactions count',
@@ -69,9 +69,9 @@ export const glossary: Record<string, GlossaryEntry> = {
     tip: 'What the KPIs alone would pay, before deductions / bonuses / penalties / cap.',
   },
   rate_type_per_achievement_point: {
-    label: 'SAR per 1% above min',
-    tip: 'For every 1% the employee is above the band\'s minimum, they earn this much.',
-    example: '150 SAR × (95% - 85%) = 1,500 SAR',
+    label: 'Amount per 1%',
+    tip: 'For every 1% the employee is above the band\'s minimum, they earn this much (in the plan currency).',
+    example: '150 × (95% - 85%) = 1,500 in plan currency',
   },
   rate_type_percentage: {
     label: '% of base payout',
@@ -79,10 +79,10 @@ export const glossary: Record<string, GlossaryEntry> = {
   },
   rate_type_fixed: {
     label: 'Fixed amount',
-    tip: 'A flat SAR amount, regardless of base payout or achievement.',
+    tip: 'A flat amount in the plan currency, regardless of base payout or achievement.',
   },
   rate_type_per_unit: {
-    label: 'SAR per unit',
+    label: 'Amount per unit',
     tip: 'Multiply by the actual value (units sold, customers visited, etc.).',
   },
   period: {

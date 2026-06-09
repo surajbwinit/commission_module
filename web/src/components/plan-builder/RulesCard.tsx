@@ -7,8 +7,8 @@ import { Badge } from '@/components/ui/Pill';
 import { cn } from '@/lib/utils';
 
 interface Rule {
-  id?: string;
-  rule_set_id?: string;
+  uid?: string;
+  rule_set_uid?: string;
   dimension: string;
   rule_type: 'include' | 'exclude';
   match_type?: 'exact' | 'category' | 'tag';
@@ -17,23 +17,25 @@ interface Rule {
 }
 
 interface RuleSet {
-  id?: string;
+  uid?: string;
   name: string;
   description?: string;
   rules: Rule[];
 }
 
 interface Plan {
-  id: string;
+  uid: string;
   rule_sets?: RuleSet[];
 }
 
 const DIMENSIONS = [
-  { value: 'product_category', label: 'Product category', lookup: true },
-  { value: 'product_sku',      label: 'Product (SKU)',    lookup: true },
-  { value: 'customer_channel', label: 'Customer channel', lookup: true },
-  { value: 'customer_group',   label: 'Customer group',   lookup: true },
-  { value: 'territory',        label: 'Territory',        lookup: false },
+  { value: 'product_brand',       label: 'Product brand',       lookup: true },
+  { value: 'product_category',    label: 'Product category',    lookup: true },
+  { value: 'product_subcategory', label: 'Product subcategory', lookup: true },
+  { value: 'product_sku',         label: 'Product (SKU)',       lookup: true },
+  { value: 'customer_channel',    label: 'Customer channel',    lookup: true },
+  { value: 'customer_group',      label: 'Customer group',      lookup: true },
+  { value: 'territory',           label: 'Sales office',        lookup: false },
 ];
 
 export default function RulesCard({ plan, onChange }: { plan: Plan; onChange: () => void }) {
@@ -48,7 +50,7 @@ export default function RulesCard({ plan, onChange }: { plan: Plan; onChange: ()
   const save = async () => {
     setSaving(true);
     try {
-      await api.put(`/plans/${plan.id}/rules`, {
+      await api.put(`/plans/${plan.uid}/rules`, {
         ruleSets: draft.map((rs) => ({
           name: rs.name, description: rs.description ?? '',
           rules: rs.rules.map((r) => ({
@@ -68,8 +70,8 @@ export default function RulesCard({ plan, onChange }: { plan: Plan; onChange: ()
     <section className="card p-5">
       <header className="mb-4 flex items-start justify-between">
         <div>
-          <h2 className="text-base font-semibold flex items-center gap-2"><FilterIcon className="w-4 h-4 text-fg-subtle" /> Mapping rules</h2>
-          <p className="text-xs text-fg-muted mt-0.5">Limit which transactions this plan sees. Include rules narrow the set; exclude rules drop transactions even if included.</p>
+          <h2 className="text-base font-semibold flex items-center gap-2 text-slate-800 dark:text-slate-100"><FilterIcon className="w-4 h-4 text-slate-400" /> Mapping rules</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Limit which transactions this plan sees. Include rules narrow the set; exclude rules drop transactions even if included.</p>
         </div>
         {dirty && (
           <button onClick={save} disabled={saving} className="btn-primary btn-sm">
@@ -87,7 +89,7 @@ export default function RulesCard({ plan, onChange }: { plan: Plan; onChange: ()
         ))}
       </div>
 
-      <button onClick={addRuleSet} className="mt-3 inline-flex items-center gap-1 text-sm text-primary hover:bg-primary/10 px-3 py-1.5 border border-dashed border-primary/40 rounded-md transition-colors">
+      <button onClick={addRuleSet} className="mt-3 inline-flex items-center gap-1 text-sm text-primary-600 hover:bg-primary-50 px-3 py-1.5 border border-dashed border-primary-300 rounded-lg transition-colors">
         <Plus className="w-4 h-4" /> Add rule set
       </button>
     </section>
@@ -104,7 +106,7 @@ function RuleSetCard({ rs, onChange, onRemove }: { rs: RuleSet; onChange: (p: Pa
   const removeRule = (i: number) => onChange({ rules: rs.rules.filter((_, idx) => idx !== i) });
 
   return (
-    <div className="border border-line rounded-lg p-4 bg-sunken/40">
+    <div className="border border-slate-200 rounded-lg p-4 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-800/40">
       <div className="flex items-center justify-between mb-3 gap-2">
         <input
           className="input flex-1 text-sm font-medium"

@@ -12,22 +12,25 @@ import PageHero from '@/components/layout/PageHero';
 import { Pagination } from '@/components/ui/Pagination';
 
 interface Tx {
-  id: string;
-  transaction_type: 'sale' | 'return' | 'collection' | 'event';
-  employee_id: string; employee_name: string;
-  customer_id: string; customer_name: string;
-  product_id: string;  product_name: string;
+  uid: string;
+  transaction_type: 'sale' | 'return' | 'collection' | 'crate_load' | 'case_delivery' | 'pallet_handling';
+  emp_uid: string;
+  customer_uid?: string; customer_name?: string; customer_code?: string;
+  product_uid?: string;  product_name?: string;  product_code?: string;
+  employee_name: string;
   quantity: number;
   amount: number;
   transaction_date: string;
   period: string;
 }
 
-const TYPE_META: Record<string, { tone: 'success' | 'warning' | 'info' | 'soft'; icon: any }> = {
-  sale:       { tone: 'success', icon: ShoppingCart },
-  return:     { tone: 'warning', icon: RotateCcw },
-  collection: { tone: 'info',    icon: Wallet },
-  event:      { tone: 'soft',    icon: Calendar },
+const TYPE_META: Record<string, { tone: 'success' | 'warning' | 'info' | 'soft' | 'primary'; icon: any }> = {
+  sale:             { tone: 'success', icon: ShoppingCart },
+  return:           { tone: 'warning', icon: RotateCcw },
+  collection:       { tone: 'info',    icon: Wallet },
+  crate_load:       { tone: 'primary', icon: Receipt },
+  case_delivery:    { tone: 'primary', icon: Receipt },
+  pallet_handling:  { tone: 'primary', icon: Receipt },
 };
 
 export default function TransactionsPage() {
@@ -41,6 +44,7 @@ export default function TransactionsPage() {
   useEffect(() => {
     setLoading(true);
     api.get<unknown, Tx[]>(`/transactions?period=${period}&limit=500`)
+    // NB: server fields are emp_uid / customer_uid / product_uid; joined name+code fields are flattened in
       .then(setRows)
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
@@ -65,10 +69,7 @@ export default function TransactionsPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHero
-        eyebrow="Lookup"
-        title="Transaction"
-        emphasis="ledger"
-        subtitle="Sales, returns, collections, and events for the selected period."
+        title="Transactions"
         accessory={<Badge tone="soft"><Calendar className="w-3 h-3" /> {period}</Badge>}
         actions={
           <Link href="/transactions/upload" className="btn-outline btn-sm">
@@ -78,7 +79,7 @@ export default function TransactionsPage() {
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <SummaryCard tone="violet"  label="Total rows" value={rows.length.toLocaleString()} icon={Receipt} />
+        <SummaryCard tone="indigo"  label="Total rows" value={rows.length.toLocaleString()} icon={Receipt} />
         <SummaryCard tone="emerald" label="Total sales" value={formatCurrency(totals.sale)} icon={ShoppingCart} />
         <SummaryCard tone="amber"   label="Total returns" value={formatCurrency(totals.return)} icon={RotateCcw} />
         <SummaryCard tone="sky"     label="Total collected" value={formatCurrency(totals.collection)} icon={Wallet} />
@@ -115,17 +116,17 @@ export default function TransactionsPage() {
             </thead>
             <tbody>
               {visible.map((t) => {
-                const m = TYPE_META[t.transaction_type] ?? TYPE_META.event;
+                const m = TYPE_META[t.transaction_type] ?? TYPE_META.sale;
                 const Icon = m.icon;
                 return (
-                  <tr key={t.id} className="border-t border-line/60 hover:bg-sunken/40">
+                  <tr key={t.uid} className="border-t border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50">
                     <td className="pl-5 pr-2 py-2 text-2xs text-fg-muted font-mono">{formatDate(t.transaction_date)}</td>
                     <td className="px-2 py-2">
                       <Badge tone={m.tone}><Icon className="w-3 h-3" />{t.transaction_type}</Badge>
                     </td>
                     <td className="px-2 py-2 font-medium">{t.employee_name}</td>
-                    <td className="px-2 py-2 text-fg-muted truncate max-w-[200px]">{t.customer_name}</td>
-                    <td className="px-2 py-2 text-fg-muted truncate max-w-[180px]">{t.product_name}</td>
+                    <td className="px-2 py-2 text-slate-500 truncate max-w-[200px]">{t.customer_name ?? '—'}</td>
+                    <td className="px-2 py-2 text-slate-500 truncate max-w-[180px]">{t.product_name ?? '—'}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{t.quantity}</td>
                     <td className={cn('pl-2 pr-5 py-2 text-right font-semibold tabular-nums',
                       t.transaction_type === 'return' ? 'text-rose-600' : ''
@@ -148,9 +149,9 @@ export default function TransactionsPage() {
   );
 }
 
-function SummaryCard({ label, value, tone, icon: Icon }: { label: string; value: string; tone: 'violet' | 'emerald' | 'amber' | 'sky'; icon: any }) {
+function SummaryCard({ label, value, tone, icon: Icon }: { label: string; value: string; tone: 'indigo' | 'emerald' | 'amber' | 'sky'; icon: any }) {
   const TONE = {
-    violet:  { bg: 'bg-violet-50',  text: 'text-violet-600' },
+    indigo:  { bg: 'bg-indigo-50',  text: 'text-indigo-600' },
     emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600' },
     amber:   { bg: 'bg-amber-50',   text: 'text-amber-600' },
     sky:     { bg: 'bg-sky-50',     text: 'text-sky-600' },
@@ -159,10 +160,10 @@ function SummaryCard({ label, value, tone, icon: Icon }: { label: string; value:
     <div className="stat-card">
       <div className="flex items-start justify-between">
         <div>
-          <div className="label">{label}</div>
-          <div className="text-xl font-semibold tabular-nums mt-1">{value}</div>
+          <div className="text-xs font-medium text-slate-500">{label}</div>
+          <div className="text-xl font-semibold tabular-nums mt-1 text-slate-800 dark:text-slate-100">{value}</div>
         </div>
-        <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', TONE.bg, TONE.text)}>
+        <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center', TONE.bg, TONE.text)}>
           <Icon className="w-4 h-4" />
         </div>
       </div>

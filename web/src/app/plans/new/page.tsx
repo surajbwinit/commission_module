@@ -13,21 +13,23 @@ import { Badge } from '@/components/ui/Pill';
 import { Tabs } from '@/components/ui/Tabs';
 import { formatCurrency } from '@/lib/utils';
 
-type TabId = 'plan' | 'kpis' | 'calculation' | 'rules';
+type TabId = 'plan' | 'calculation' | 'kpis' | 'rules';
 
 const TABS: { value: TabId; label: string; icon: React.ComponentType<{ className?: string }>; description: string }[] = [
-  { value: 'plan',        label: 'Plan',         icon: Settings2,  description: 'Basics, scope and eligibility.' },
-  { value: 'kpis',        label: 'KPIs',         icon: Target,     description: 'Monitor metrics that affect deductions.' },
-  { value: 'calculation', label: 'Calculation',  icon: Calculator, description: 'Payout structure: target KPIs, slabs and weights.' },
-  { value: 'rules',       label: 'Rules',        icon: Filter,     description: 'Mapping rules and adjustments (multipliers / penalties).' },
+  { value: 'plan',        label: 'Plan',            icon: Settings2,  description: 'Basics, scope and KPI targets.' },
+  { value: 'calculation', label: "KPI's & Weights", icon: Calculator, description: 'Payout structure: target KPIs, slabs and weights.' },
+  { value: 'kpis',        label: 'Deductions',      icon: Target,     description: 'Monitor metrics and their deduction bands.' },
+  { value: 'rules',       label: 'Rules',           icon: Filter,     description: 'Mapping rules and adjustments (multipliers / penalties).' },
 ];
 
 interface PlanLite {
-  id: string; name: string; description?: string;
+  uid: string; name: string; description?: string;
   status: string; plan_type: string;
   effective_from: string; effective_to: string;
-  base_payout: number; currency?: string;
+  base_payout: number; currency_uid?: string; currency_code?: string;
 }
+
+interface Currency { uid: string; code: string; name: string; symbol?: string; }
 
 export default function NewPlanPage() {
   const router = useRouter();
@@ -38,13 +40,16 @@ export default function NewPlanPage() {
     effective_from: '',
     effective_to: '',
     base_payout: 0,
+    currency_uid: '',
   });
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState<TabId>('plan');
   const [existingPlans, setExistingPlans] = useState<PlanLite[]>([]);
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
 
   useEffect(() => {
     api.get<unknown, PlanLite[]>('/plans').then(setExistingPlans).catch(() => {});
+    api.get<unknown, Currency[]>('/currency').then(setCurrencies).catch(() => {});
   }, []);
 
   const submit = async (e?: React.FormEvent) => {
@@ -53,11 +58,15 @@ export default function NewPlanPage() {
       toast.error('Name and effective dates are required');
       return;
     }
+    if (!form.currency_uid) {
+      toast.error('Currency is required');
+      return;
+    }
     setSaving(true);
     try {
       const plan = await api.post<unknown, any>('/plans', form);
       toast.success('Plan created — now add KPIs, slabs and rules.');
-      router.push(`/plans/${plan.id}`);
+      router.push(`/plans/${plan.uid}`);
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to create');
     } finally {
@@ -73,6 +82,7 @@ export default function NewPlanPage() {
       effective_from: '',
       effective_to: '',
       base_payout: p.base_payout ?? 0,
+      currency_uid: p.currency_uid ?? '',
     });
     toast.success(`Prefilled from "${p.name}"`);
   };
@@ -82,9 +92,7 @@ export default function NewPlanPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHero
-        eyebrow="Plan builder"
-        title={form.name || 'New plan'}
-        subtitle="Set the basics on this screen. KPIs, calculation and rules unlock once the plan is created."
+        title={form.name || 'New Plan'}
         accessory={
           <div className="flex items-center gap-2">
             <Link href="/plans" className="btn-ghost btn-sm"><ArrowLeft className="h-3.5 w-3.5" /> All plans</Link>
@@ -95,14 +103,14 @@ export default function NewPlanPage() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
         <div className="min-w-0 max-w-4xl">
-          {/* Sticky tab bar — mirrors the edit page */}
-          <div className="sticky top-0 z-20 -mt-2 mb-5 bg-background/80 backdrop-blur-sm">
+          {/* Tab bar — mirrors the edit page */}
+          <div className="mb-5 pb-3 border-b border-slate-200 dark:border-slate-700">
             <Tabs<TabId>
               value={tab}
               onChange={setTab}
               options={TABS.map((t) => ({ value: t.value, label: t.label, icon: t.icon }))}
             />
-            <p className="mt-3 text-xs text-muted-foreground">{activeTab.description}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{activeTab.description}</p>
           </div>
 
           {/* Tab content */}
@@ -141,6 +149,21 @@ export default function NewPlanPage() {
                       value={form.base_payout || ''}
                       onChange={(e) => setForm({ ...form, base_payout: parseFloat(e.target.value) || 0 })}
                     />
+                  </Field>
+                  <Field label="Currency" required>
+                    <select
+                      required
+                      className="input w-full"
+                      value={form.currency_uid}
+                      onChange={(e) => setForm({ ...form, currency_uid: e.target.value })}
+                    >
+                      <option value="">— select —</option>
+                      {currencies.map((c) => (
+                        <option key={c.uid} value={c.uid}>
+                          {c.code}{c.symbol ? ` (${c.symbol})` : ''} — {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </Field>
                   <Field label="Effective from" required>
                     <input
@@ -216,18 +239,18 @@ export default function NewPlanPage() {
               </p>
               <ul className="space-y-0.5 max-h-64 overflow-y-auto -mx-1">
                 {existingPlans.slice(0, 12).map((p) => (
-                  <li key={p.id}>
+                  <li key={p.uid}>
                     <button
                       type="button"
                       onClick={() => prefillFrom(p)}
-                      className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded text-left text-xs hover:bg-accent transition-colors group"
+                      className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group"
                     >
                       <span className="flex items-center gap-1.5 truncate">
-                        <Sparkles className="h-3 w-3 text-muted-foreground group-hover:text-primary shrink-0" />
+                        <Sparkles className="h-3 w-3 text-slate-400 group-hover:text-primary-600 shrink-0" />
                         <span className="truncate">{p.name}</span>
                       </span>
-                      <span className="text-muted-foreground tabular-nums shrink-0">
-                        {formatCurrency(p.base_payout, p.currency)}
+                      <span className="text-slate-500 tabular-nums shrink-0">
+                        {formatCurrency(p.base_payout, p.currency_code)}
                       </span>
                     </button>
                   </li>

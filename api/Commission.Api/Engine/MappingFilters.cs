@@ -4,9 +4,9 @@ using Commission.Api.Data;
 namespace Commission.Api.Engine;
 
 /// <summary>
-/// Port of server/src/engine/step02_mappingFilters.js — the advanced rule engine.
-/// Supports §22.2 exclude-overrides-include, §22.4 nested rules (parent_rule_id),
+/// Mapping rules — §22.2 exclude-overrides-include, §22.4 nested rules,
 /// §22.7 conditional logic, §22.8 tag matching, §22.10 time-bound rules.
+/// All operates on uid-based transaction fields.
 /// </summary>
 public class MappingFilters
 {
@@ -22,17 +22,15 @@ public class MappingFilters
         if (ruleSets is null || ruleSets.Count == 0) return transactions;
 
         var allRules = ruleSets.SelectMany(rs => rs.Rules).ToList();
-        var topLevel = allRules.Where(r => string.IsNullOrEmpty(r.ParentRuleId)).ToList();
+        var topLevel = allRules.Where(r => string.IsNullOrEmpty(r.ParentRuleUid)).ToList();
         var includes = topLevel.Where(r => r.RuleType == "include").ToList();
         var excludes = topLevel.Where(r => r.RuleType == "exclude").ToList();
 
         return transactions.Where(t =>
         {
-            // Exclude wins (§22.6)
             foreach (var ex in excludes)
                 if (RuleMatchesRecursive(ex, allRules, t, tagContext, asOf)) return false;
 
-            // If any include exists, must match at least one
             if (includes.Count > 0)
                 return includes.Any(inc => RuleMatchesRecursive(inc, allRules, t, tagContext, asOf));
 
@@ -43,7 +41,7 @@ public class MappingFilters
     private static bool RuleMatchesRecursive(Rule rule, List<Rule> all, Transaction t, TagContext? tagCtx, DateTime asOf)
     {
         if (!RuleMatches(rule, t, tagCtx, asOf)) return false;
-        var children = all.Where(r => r.ParentRuleId == rule.Id).ToList();
+        var children = all.Where(r => r.ParentRuleUid == rule.Uid).ToList();
         if (children.Count == 0) return true;
 
         foreach (var child in children)
@@ -66,28 +64,41 @@ public class MappingFilters
         if (rule.MatchType == "tag")
             return TxnMatchesTags(t, values, tagCtx);
 
+        // Dimension mapping — all matches by uid (or denormalized name where uid not present)
         return rule.Dimension switch
         {
-            "product"           => values.Contains(t.ProductId ?? ""),
-            "product_category"  => values.Contains(t.ProductCategory ?? ""),
-            "product_sku"       => values.Contains(t.Sku ?? ""),
-            "customer"          => values.Contains(t.CustomerId ?? ""),
-            "customer_channel"  => values.Contains(t.CustomerChannel ?? ""),
-            "customer_group"    => values.Contains(t.CustomerGroup ?? ""),
-            "territory"         => values.Contains(t.TerritoryId ?? ""),
-            "transaction_type"  => values.Contains(t.TransactionType),
+            "product"             => values.Contains(t.ProductUid ?? ""),
+            "product_brand"       => values.Contains(t.ProductBrandUid ?? "")
+                                  || values.Contains(t.ProductBrandName ?? ""),
+            "product_category"    => values.Contains(t.ProductCategoryUid ?? "")
+                                  || values.Contains(t.ProductCategoryName ?? ""),
+            "product_subcategory" => values.Contains(t.ProductSubcategoryUid ?? "")
+                                  || values.Contains(t.ProductSubcategoryName ?? ""),
+            "product_sku"         => values.Contains(t.ProductCode ?? ""),    // SKU = product code
+            "customer"            => values.Contains(t.CustomerUid ?? ""),
+            "customer_channel"    => values.Contains(t.CustomerChannelUid ?? "")
+                                  || values.Contains(t.CustomerChannelName ?? ""),
+            "customer_group"      => values.Contains(t.CustomerGroupUid ?? "")
+                                  || values.Contains(t.CustomerGroupName ?? ""),
+            "territory"           => values.Contains(t.SalesOfficeUid ?? ""),
+            "transaction_type"    => values.Contains(t.TransactionType),
             _ => false
         };
     }
 
     private static bool TxnMatchesTags(Transaction t, List<string> tagIds, TagContext? tagCtx)
     {
-        if (tagCtx is null) return false;
-        var prodTags = (t.ProductId != null && tagCtx.ProductTags.TryGetValue(t.ProductId, out var pt)) ? pt : new();
-        var custTags = (t.CustomerId != null && tagCtx.CustomerTags.TryGetValue(t.CustomerId, out var ct)) ? ct : new();
-        var terrTags = (t.TerritoryId != null && tagCtx.TerritoryTags.TryGetValue(t.TerritoryId, out var tt)) ? tt : new();
-        var all = new HashSet<string>(prodTags.Concat(custTags).Concat(terrTags));
-        return tagIds.Any(all.Contains);
+        // Product tags now live on products.tags JSONB (loaded into t.TagIds upstream).
+        // Customer/SalesOffice tag dictionaries are kept for future extensibility.
+        var tags = t.TagIds ?? new List<string>();
+        if (tagCtx != null)
+        {
+            if (t.CustomerUid != null && tagCtx.CustomerTags.TryGetValue(t.CustomerUid, out var ct))
+                tags = tags.Concat(ct).ToList();
+            if (t.SalesOfficeUid != null && tagCtx.SalesOfficeTags.TryGetValue(t.SalesOfficeUid, out var st))
+                tags = tags.Concat(st).ToList();
+        }
+        return tagIds.Any(tags.Contains);
     }
 
     private static bool EvaluateConditional(string? logic, Transaction t)
@@ -126,16 +137,18 @@ public class MappingFilters
 
     private static object? GetFieldValue(Transaction t, string field) => field switch
     {
-        "product_id"       => t.ProductId,
-        "customer_id"      => t.CustomerId,
-        "amount"           => t.Amount,
-        "quantity"         => t.Quantity,
-        "transaction_type" => t.TransactionType,
-        "product_category" => t.ProductCategory,
-        "customer_channel" => t.CustomerChannel,
-        "customer_group"   => t.CustomerGroup,
-        "is_strategic"     => t.IsStrategic,
-        "is_new_launch"    => t.IsNewLaunch,
+        "product_uid"         => t.ProductUid,
+        "customer_uid"        => t.CustomerUid,
+        "amount"              => t.Amount,
+        "quantity"            => t.Quantity,
+        "transaction_type"    => t.TransactionType,
+        "product_brand"       => t.ProductBrandName       ?? t.ProductBrandUid,
+        "product_category"    => t.ProductCategoryName    ?? t.ProductCategoryUid,
+        "product_subcategory" => t.ProductSubcategoryName ?? t.ProductSubcategoryUid,
+        "customer_channel"    => t.CustomerChannelName ?? t.CustomerChannelUid,
+        "customer_group"      => t.CustomerGroupName ?? t.CustomerGroupUid,
+        "is_strategic"        => t.IsStrategic,
+        "is_new_launch"       => t.IsNewLaunch,
         _ => null
     };
 
@@ -176,33 +189,11 @@ public class MappingFilters
         catch { return new List<string> { raw }; }
     }
 
-    public async Task<TagContext> BuildTagContextAsync(CancellationToken ct = default)
-    {
-        var rows = await _db.QueryDynamicAsync(
-            "SELECT tag_id, entity_type, entity_id, valid_from, valid_to FROM entity_tags",
-            ct: ct);
-        var today = DateTime.UtcNow.Date;
-        var ctx = new TagContext();
-        foreach (var row in rows)
-        {
-            DateTime? vf = row.valid_from;
-            DateTime? vt = row.valid_to;
-            if (vf.HasValue && today < vf.Value.Date) continue;
-            if (vt.HasValue && today > vt.Value.Date) continue;
-            string entityType = row.entity_type;
-            string entityId   = row.entity_id;
-            string tagId      = row.tag_id;
-            var dict = entityType switch
-            {
-                "product"   => ctx.ProductTags,
-                "customer"  => ctx.CustomerTags,
-                "territory" => ctx.TerritoryTags,
-                _ => null
-            };
-            if (dict is null) continue;
-            if (!dict.TryGetValue(entityId, out var list)) { list = new(); dict[entityId] = list; }
-            list.Add(tagId);
-        }
-        return ctx;
-    }
+    /// <summary>
+    /// Tag context — placeholder. The old entity_tags / tags tables are dropped.
+    /// Product tags are loaded inline from products.tags JSONB (handled in Steps).
+    /// Returns an empty context so existing callers continue to work.
+    /// </summary>
+    public Task<TagContext> BuildTagContextAsync(CancellationToken ct = default)
+        => Task.FromResult(new TagContext());
 }

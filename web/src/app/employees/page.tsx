@@ -9,17 +9,18 @@ import { Badge } from '@/components/ui/Pill';
 import PageHero from '@/components/layout/PageHero';
 
 interface Employee {
-  id: string;
+  uid: string;
+  emp_code?: string;
   name: string;
   email: string;
-  role_id: string;
-  role_name: string;
-  territory_id?: string;
-  territory_name?: string;
-  reports_to?: string;
+  role_uid: string;
+  role_name_en: string;
+  sales_office_uid?: string;
+  sales_office_name?: string;
+  reports_to_uid?: string;
   base_salary: number;
   hire_date: string;
-  is_active: number;
+  is_active: boolean;
 }
 
 export default function PeoplePage() {
@@ -42,9 +43,9 @@ export default function PeoplePage() {
     const grouped = new Map<string, Employee[]>();
     const filtered = rows.filter((e) => !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.email.toLowerCase().includes(search.toLowerCase()));
     for (const e of filtered) {
-      const list = grouped.get(e.role_name) ?? [];
+      const list = grouped.get(e.role_name_en) ?? [];
       list.push(e);
-      grouped.set(e.role_name, list);
+      grouped.set(e.role_name_en, list);
     }
     return Array.from(grouped.entries()).sort();
   }, [rows, search]);
@@ -52,10 +53,7 @@ export default function PeoplePage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHero
-        eyebrow="Lookup"
-        title="The"
-        emphasis="people"
-        subtitle="Employee directory grouped by role."
+        title="Employees"
         actions={
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-subtle pointer-events-none" />
@@ -91,12 +89,12 @@ export default function PeoplePage() {
                 </header>
                 <ul>
                   {employees.map((e) => (
-                    <li key={e.id}>
+                    <li key={e.uid}>
                       <button
                         onClick={() => setSelected(e)}
                         className={cn(
                           'w-full flex items-center gap-3 px-5 py-3 border-b border-line/60 last:border-b-0 hover:bg-sunken/60 transition-colors text-left',
-                          selected?.id === e.id && 'bg-primary-50/40'
+                          selected?.uid === e.uid && 'bg-primary-50/40'
                         )}
                       >
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-300 to-primary-600 text-white text-xs font-semibold flex items-center justify-center ring-2 ring-white shadow-sm">
@@ -107,8 +105,7 @@ export default function PeoplePage() {
                           <div className="text-2xs text-fg-muted truncate">{e.email}</div>
                         </div>
                         <div className="text-right text-xs text-fg-muted">
-                          <div>{e.territory_name ?? '→'}</div>
-                          <div className="font-medium text-fg tabular-nums">{formatCurrency(e.base_salary)}</div>
+                          <div>{e.sales_office_name ?? '→'}</div>
                         </div>
                       </button>
                     </li>
@@ -128,15 +125,14 @@ export default function PeoplePage() {
                       {selected.name.charAt(0)}
                     </div>
                     <div className="text-base font-semibold text-fg">{selected.name}</div>
-                    <div className="text-xs text-fg-muted">{selected.role_name}</div>
+                    <div className="text-xs text-fg-muted">{selected.role_name_en}</div>
                   </div>
                   <dl className="mt-4 space-y-2.5 text-sm">
                     <DetailRow icon={Mail}      label="Email">{selected.email}</DetailRow>
-                    <DetailRow icon={MapPin}    label="Territory">{selected.territory_name ?? '→'}</DetailRow>
-                    <DetailRow icon={DollarSign} label="Base salary"><span className="tabular-nums font-medium">{formatCurrency(selected.base_salary)}</span></DetailRow>
+                    <DetailRow icon={MapPin}    label="Sales office">{selected.sales_office_name ?? '→'}</DetailRow>
                     <DetailRow icon={Calendar}  label="Hire date">{formatDate(selected.hire_date)}</DetailRow>
                     <DetailRow icon={UserIcon}  label="Status">
-                      <Badge tone={selected.is_active === 1 ? 'success' : 'soft'}>{selected.is_active === 1 ? 'Active' : 'Inactive'}</Badge>
+                      <Badge tone={selected.is_active ? 'success' : 'soft'}>{selected.is_active ? 'Active' : 'Inactive'}</Badge>
                     </DetailRow>
                   </dl>
                 </>

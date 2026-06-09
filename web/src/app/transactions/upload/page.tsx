@@ -159,10 +159,8 @@ export default function BulkUploadPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHero
-        eyebrow="Transactions"
-        title="Bulk"
-        emphasis="upload"
-        subtitle="Import sales, returns, collections and events from a CSV file."
+        title="Bulk Upload"
+        subtitle="Import sales, returns, collections from CSV."
         accessory={
           <Link href="/transactions" className="btn-ghost btn-sm">
             <ArrowLeft className="h-3.5 w-3.5" /> Back to ledger

@@ -9,8 +9,8 @@ import FixedIncentivesEditor from './FixedIncentivesEditor';
 import MonthlyTargetsEditor from './MonthlyTargetsEditor';
 
 interface Plan {
-  id: string;
-  currency?: string;
+  uid: string;
+  currency_uid?: string;
   kpis?: any[];
   multiplier_rules?: any[];
   penalty_rules?: any[];
@@ -47,7 +47,7 @@ export default function AdjustmentsCard({ plan, onChange }: { plan: Plan; onChan
 
   return (
     <AdvancedToggle
-      id={`plan-advanced-${plan.id}`}
+      id={`plan-advanced-${plan.uid}`}
       title="Advanced adjustments"
       subtitle="Bonuses, penalties, caps, splits, fixed bonuses, monthly target overrides. Most plans don't need these."
       summary={summary}

@@ -6,31 +6,31 @@ import toast from 'react-hot-toast';
 import Tip from '@/components/Tip';
 
 interface Participant {
-  id?: string;
-  role_id: string;
+  uid?: string;
+  role_uid: string;
   role_name?: string;
   split_percent: number;
 }
 
 interface SplitRule {
-  id?: string;
+  uid?: string;
   name: string;
   trigger_condition?: string;
   participants: Participant[];
 }
 
 interface Role {
-  id: string;
-  name: string;
+  uid: string;
+  role_name_en: string;
 }
 
 interface Plan {
-  id: string;
+  uid: string;
   split_rules?: SplitRule[];
 }
 
 const blankRule = (): SplitRule => ({ name: '', trigger_condition: '', participants: [] });
-const blankParticipant = (): Participant => ({ role_id: '', split_percent: 0 });
+const blankParticipant = (): Participant => ({ role_uid: '', split_percent: 0 });
 
 export default function SplitsEditor({ plan, onChange }: { plan: Plan; onChange: () => void }) {
   const [draft, setDraft] = useState<SplitRule[]>(plan.split_rules ?? []);
@@ -63,12 +63,12 @@ export default function SplitsEditor({ plan, onChange }: { plan: Plan; onChange:
   const save = async () => {
     setSaving(true);
     try {
-      await api.put(`/plans/${plan.id}/splits`, {
+      await api.put(`/plans/${plan.uid}/splits`, {
         rules: draft.map((r) => ({
           name: r.name,
           triggerCondition: r.trigger_condition || null,
           participants: r.participants.map((p) => ({
-            roleId: p.role_id,
+            roleUid: p.role_uid,
             splitPercent: Number(p.split_percent) || 0,
           })),
         })),
@@ -113,7 +113,7 @@ export default function SplitsEditor({ plan, onChange }: { plan: Plan; onChange:
             const total = rule.participants.reduce((s, p) => s + (Number(p.split_percent) || 0), 0);
             const totalOk = Math.abs(total - 100) < 0.001;
             return (
-              <div key={rule.id ?? ri} className="border border-line rounded-lg p-4 bg-sunken/40 space-y-3">
+              <div key={rule.uid ?? ri} className="border border-slate-200 rounded-lg p-4 bg-slate-50/60 space-y-3 dark:border-slate-700 dark:bg-slate-800/40">
                 <div className="flex items-start gap-2">
                   <label className="flex-1">
                     <span className="block text-2xs uppercase text-fg-muted mb-1">Name</span>
@@ -144,14 +144,14 @@ export default function SplitsEditor({ plan, onChange }: { plan: Plan; onChange:
 
                 <div className="space-y-1.5">
                   {rule.participants.map((p, pi) => (
-                    <div key={p.id ?? pi} className="flex items-center gap-2">
+                    <div key={p.uid ?? pi} className="flex items-center gap-2">
                       <select
                         className="input text-sm w-56"
-                        value={p.role_id}
-                        onChange={(e) => updateParticipant(ri, pi, { role_id: e.target.value })}
+                        value={p.role_uid}
+                        onChange={(e) => updateParticipant(ri, pi, { role_uid: e.target.value })}
                       >
                         <option value="">Select role…</option>
-                        {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        {roles.map((r) => <option key={r.uid} value={r.uid}>{r.role_name_en}</option>)}
                       </select>
                       <input
                         type="number"

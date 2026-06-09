@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import Tip from '@/components/Tip';
 
 interface EligRule {
-  id: string;
+  uid: string;
   metric: string;
   operator: string;
   threshold: number;
@@ -14,7 +14,7 @@ interface EligRule {
 }
 
 interface Plan {
-  id: string;
+  uid: string;
   eligibility_rules?: EligRule[];
 }
 
@@ -44,7 +44,7 @@ export default function EligibilityCard({ plan, onChange }: { plan: Plan; onChan
     if (threshold == null || isNaN(threshold)) { setDraft(without); return; }
     setDraft([
       ...without,
-      { id: '', metric, operator: DEFAULT_OP[metric] ?? '>=', threshold, action: 'zero_payout', reduction_percent: 0 },
+      { uid: '', metric, operator: DEFAULT_OP[metric] ?? '>=', threshold, action: 'zero_payout', reduction_percent: 0 },
     ]);
   };
 
@@ -53,7 +53,7 @@ export default function EligibilityCard({ plan, onChange }: { plan: Plan; onChan
   const save = async () => {
     setSaving(true);
     try {
-      await api.put(`/plans/${plan.id}/eligibility`, {
+      await api.put(`/plans/${plan.uid}/eligibility`, {
         rules: draft.map((r) => ({
           metric: r.metric, operator: r.operator, threshold: r.threshold,
           action: r.action, reductionPercent: r.reduction_percent,

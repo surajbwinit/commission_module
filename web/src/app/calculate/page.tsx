@@ -28,25 +28,102 @@ const PIPELINE_STEPS = [
   { step: 12, name: 'Persist + approve',    info: 'Save payout rows and create approval entries.' },
 ];
 
-interface Plan { id: string; name: string; status: string; }
-interface RunListRow { id: string; plan_name: string; period: string; status: string; total_payout: number; employee_count: number; started_at: string; }
+type RunStatus = 'completed' | 'failed' | 'running' | 'pending' | 'partial' | string;
+
+const RUN_STATUS_STYLES: Record<string, { pill: string; dot: string; label: string }> = {
+  completed: { pill: 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30',
+               dot: 'bg-emerald-500', label: 'Completed' },
+  failed:    { pill: 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-500/30',
+               dot: 'bg-rose-500', label: 'Failed' },
+  running:   { pill: 'bg-sky-50 text-sky-700 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-300 dark:ring-sky-500/30',
+               dot: 'bg-sky-500 animate-pulse', label: 'Running' },
+  pending:   { pill: 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30',
+               dot: 'bg-amber-500', label: 'Pending' },
+  partial:   { pill: 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30',
+               dot: 'bg-amber-500', label: 'Partial' },
+};
+
+const ELIGIBILITY_STYLES: Record<string, { pill: string; dot: string; label: string }> = {
+  eligible:    { pill: 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30',
+                 dot: 'bg-emerald-500', label: 'Eligible' },
+  reduced:     { pill: 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30',
+                 dot: 'bg-amber-500', label: 'Reduced' },
+  not_eligible:{ pill: 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-500/30',
+                 dot: 'bg-rose-500', label: 'Not eligible' },
+  excluded:    { pill: 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-500/30',
+                 dot: 'bg-rose-500', label: 'Excluded' },
+};
+
+function EligibilityPill({ status }: { status: string }) {
+  const key = (status ?? '').toLowerCase().replace(/[\s-]/g, '_');
+  const s = ELIGIBILITY_STYLES[key] ?? {
+    pill: 'bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-700/40 dark:text-slate-300 dark:ring-slate-600',
+    dot: 'bg-slate-400',
+    label: status || 'Unknown',
+  };
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ring-inset', s.pill)}>
+      <span className={cn('inline-block w-1.5 h-1.5 rounded-full', s.dot)} />
+      {s.label}
+    </span>
+  );
+}
+
+function RunStatusPill({ status }: { status: RunStatus }) {
+  const key = (status ?? '').toLowerCase();
+  const s = RUN_STATUS_STYLES[key] ?? {
+    pill: 'bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-700/40 dark:text-slate-300 dark:ring-slate-600',
+    dot: 'bg-slate-400',
+    label: status || 'Unknown',
+  };
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ring-inset', s.pill)}>
+      <span className={cn('inline-block w-1.5 h-1.5 rounded-full', s.dot)} />
+      {s.label}
+    </span>
+  );
+}
+
+interface Plan { uid: string; name: string; status: string; }
+interface RunListRow { uid: string; plan_name: string; period: string; status: string; total_payout: number; employee_count: number; started_time: string; }
 interface RunResult {
-  run_id: string; plan_id: string; period: string; status: string; total_payout: number; employee_count: number;
+  run_uid: string; plan_uid: string; period: string; status: string; total_payout: number; employee_count: number;
   payouts: PayoutSummary[];
 }
-interface PayoutSummary { id?: string; employee_id: string; employee_name: string; role_name: string; gross_payout: number; net_payout: number; eligibility_status: string; }
+interface PayoutSummary { uid?: string; emp_uid: string; employee_name: string; role_name: string; gross_payout: number; net_payout: number; eligibility_status: string; }
+interface DeductionTriggered {
+  kpi_uid: string; kpi_code: string; kpi_name: string;
+  rule_name: string; metric_type: string; metric_value: number; deduction_percent: number;
+}
+interface CalcDetails {
+  kpi_deduction?: { amount: number; total_percent: number; triggered: DeductionTriggered[] };
+  penalty?:       { amount: number; total_penalty_percent: number; triggered: any[] };
+  multiplier?:    { amount: number; final_multiplier: number; applied: any[] };
+  eligibility?:   { status: string; details: any[]; reduction: number };
+  cap?:           { capped: number; adjustment: number };
+  kpi_gross_only?: number;
+}
 interface PayoutDetail {
-  id: string; employee_name: string; role_name: string; period: string;
+  uid: string; employee_name: string; role_name: string; period: string;
   gross_payout: number; kpi_deduction_amount: number; fixed_incentive_amount: number;
   multiplier_amount: number; penalty_amount: number; cap_adjustment: number; split_adjustment: number;
   net_payout: number; eligibility_status: string;
   kpi_results?: KpiResultRow[];
+  calculation_details?: CalcDetails | string;
 }
 interface KpiResultRow {
-  kpi_id: string; kpi_name: string; kpi_code: string; kpi_category: string;
+  kpi_uid: string; kpi_name: string; kpi_code: string; kpi_category: string;
+  unit?: string;
   target_value: number; actual_value: number; achievement_percent: number;
   slab_rate: number; slab_type: string;
   raw_payout: number; weighted_payout: number; weight: number;
+}
+
+function formatKpiValue(value: number, unit?: string): string {
+  if (value == null) return '-';
+  if (unit === 'percentage') return `${value}%`;
+  if (unit === 'currency')   return formatCurrency(value);
+  return String(value);
 }
 
 export default function CalculatePage() {
@@ -66,7 +143,7 @@ export default function CalculatePage() {
       .then(([p, r]) => {
         const active = p.filter((x) => x.status === 'active');
         setPlans(active);
-        if (active.length > 0) setSelectedPlan(active[0].id);
+        if (active.length > 0) setSelectedPlan(active[0].uid);
         else setSelectedPlan('');
         setPastRuns(r);
       })
@@ -91,7 +168,7 @@ export default function CalculatePage() {
     try {
       const endpoint = asSimulation ? '/simulation/run' : '/calculation/run';
       const res = await api.post<unknown, RunResult>(endpoint, {
-        planId: selectedPlan, period: selectedPeriod, createdBy: 'ui',
+        planUid: selectedPlan, period: selectedPeriod, createdBy: 'ui',
       });
       clearInterval(anim);
       setCurrentStep(PIPELINE_STEPS.length - 1);
@@ -119,14 +196,21 @@ export default function CalculatePage() {
     } catch (e: any) { toast.error(e.message); }
   };
 
+  // Load a past run into the same UI we use after a fresh run, so you can
+  // browse historical calculations and drill into each employee + KPI.
+  const loadPastRun = async (runUid: string) => {
+    setExpandedPayout(null);
+    setPayoutDetail(null);
+    try {
+      const run = await api.get<unknown, RunResult>(`/calculation/runs/${runUid}`);
+      setResult(run);
+      setCurrentStep(PIPELINE_STEPS.length - 1);
+    } catch (e: any) { toast.error(e.message); }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHero
-        eyebrow="Now"
-        title="Run"
-        emphasis="payout"
-        subtitle="Execute the 12-step calculation pipeline for a plan and a period."
-      />
+      <PageHero title="Run Payout" />
 
       <section className="card p-5">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
@@ -135,7 +219,7 @@ export default function CalculatePage() {
             <select className="input" value={selectedPlan} onChange={(e) => setSelectedPlan(e.target.value)} disabled={plans.length === 0}>
               {plans.length === 0
                 ? <option>→ No active plans → activate one in Plans →</option>
-                : plans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                : plans.map((p) => <option key={p.uid} value={p.uid}>{p.name}</option>)}
             </select>
           </label>
           <label>
@@ -185,19 +269,26 @@ export default function CalculatePage() {
                   <th className="text-left px-2 py-2.5">Status</th>
                   <th className="text-right px-2 py-2.5">Employees</th>
                   <th className="text-right pl-2 pr-5 py-2.5">Total</th>
+                  <th className="w-8"></th>
                 </tr>
               </thead>
               <tbody>
                 {pastRuns.slice(0, 12).map((r) => (
-                  <tr key={r.id} className="border-t border-line/60 hover:bg-sunken/40">
+                  <tr
+                    key={r.uid}
+                    onClick={() => loadPastRun(r.uid)}
+                    className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer dark:border-slate-800 dark:hover:bg-slate-800/40"
+                    title="Click to load this run and drill into each employee's KPI breakdown"
+                  >
                     <td className="pl-5 px-2 py-2 font-medium">{r.plan_name}</td>
-                    <td className="px-2 py-2 font-mono text-2xs text-fg-muted">{r.period}</td>
-                    <td className="px-2 py-2 text-fg-muted">{formatDateTime(r.started_at)}</td>
+                    <td className="px-2 py-2 font-mono text-2xs text-slate-500">{r.period}</td>
+                    <td className="px-2 py-2 text-slate-500">{formatDateTime(r.started_time)}</td>
                     <td className="px-2 py-2">
-                      <Badge tone={r.status === 'completed' ? 'success' : r.status === 'failed' ? 'danger' : 'soft'}>{r.status}</Badge>
+                      <RunStatusPill status={r.status} />
                     </td>
                     <td className="px-2 py-2 text-right tabular-nums">{r.employee_count}</td>
                     <td className="pl-2 pr-5 py-2 text-right font-semibold tabular-nums">{formatCurrency(r.total_payout)}</td>
+                    <td className="pr-5"><ChevronRight className="w-4 h-4 text-fg-subtle" /></td>
                   </tr>
                 ))}
               </tbody>
@@ -287,7 +378,7 @@ function SummaryCards({ result }: { result: RunResult }) {
       </div>
       <div className="stat-card">
         <div className="label">Status</div>
-        <div className="mt-1.5"><Badge tone={result.status === 'completed' ? 'success' : 'warning'}>{result.status}</Badge></div>
+        <div className="mt-1.5"><RunStatusPill status={result.status} /></div>
       </div>
     </div>
   );
@@ -296,11 +387,13 @@ function SummaryCards({ result }: { result: RunResult }) {
 function PayoutTable({
   payouts, expanded, detail, onToggle,
 }: { payouts: PayoutSummary[]; expanded: string | null; detail: PayoutDetail | null; onToggle: (id: string) => void; }) {
+  // Highest earners at the top — same order the dashboard leaderboard uses.
+  const sortedPayouts = [...payouts].sort((a, b) => (b.net_payout ?? 0) - (a.net_payout ?? 0));
   return (
     <section className="card overflow-hidden">
       <div className="section-head px-5 pt-5">
-        <div><h2>Employee payouts</h2><p>Click a row to see the per-KPI breakdown and every adjustment.</p></div>
-        <Badge tone="soft">{payouts.length} rows</Badge>
+        <div><h2>Employee payouts</h2><p>Sorted by net payout, highest first. Click a row to see the per-KPI breakdown.</p></div>
+        <Badge tone="soft">{sortedPayouts.length} rows</Badge>
       </div>
       <table className="w-full text-sm">
         <thead className="text-2xs uppercase tracking-wider text-fg-subtle bg-sunken/60">
@@ -315,12 +408,12 @@ function PayoutTable({
           </tr>
         </thead>
         <tbody>
-          {payouts.map((p) => {
-            const id = p.id ?? p.employee_id;
-            const isExpanded = expanded === id;
+          {sortedPayouts.map((p) => {
+            const uid = p.uid ?? p.emp_uid;
+            const isExpanded = expanded === uid;
             return (
-              <React.Fragment key={id}>
-                <tr className={cn('border-t border-line/60 hover:bg-sunken/60 cursor-pointer', isExpanded && 'bg-primary-50/30')} onClick={() => onToggle(id)}>
+              <React.Fragment key={uid}>
+                <tr className={cn('border-t border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40 cursor-pointer', isExpanded && 'bg-primary-50/40 dark:bg-primary-900/10')} onClick={() => onToggle(uid)}>
                   <td className="pl-5">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-300 to-primary-600 text-white text-xs font-semibold flex items-center justify-center">
                       {p.employee_name.charAt(0)}
@@ -331,7 +424,7 @@ function PayoutTable({
                   <td className="px-2 py-3 text-right tabular-nums">{formatCurrency(p.gross_payout)}</td>
                   <td className="px-2 py-3 text-right font-semibold tabular-nums">{formatCurrency(p.net_payout)}</td>
                   <td className="px-2 py-3">
-                    <Badge tone={p.eligibility_status === 'eligible' ? 'success' : p.eligibility_status === 'reduced' ? 'warning' : 'danger'}>{p.eligibility_status}</Badge>
+                    <EligibilityPill status={p.eligibility_status} />
                   </td>
                   <td className="pr-5">{isExpanded ? <ChevronDown className="w-4 h-4 text-fg-subtle" /> : <ChevronRight className="w-4 h-4 text-fg-subtle" />}</td>
                 </tr>
@@ -352,6 +445,12 @@ function PayoutTable({
 }
 
 function PayoutDetailPanel({ detail }: { detail: PayoutDetail }) {
+  // calculation_details may arrive as a JSON string or a parsed object
+  const calc: CalcDetails | undefined = typeof detail.calculation_details === 'string'
+    ? safeParseCalc(detail.calculation_details)
+    : detail.calculation_details;
+  const dedTriggers = calc?.kpi_deduction?.triggered ?? [];
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
@@ -363,6 +462,32 @@ function PayoutDetailPanel({ detail }: { detail: PayoutDetail }) {
         <AdjustCard icon={CheckCircle2}  label="Net payout"     value={detail.net_payout}          tone="sky"     emphasis />
       </div>
 
+      {/* Why was there a deduction? — show every triggered KPI band */}
+      {dedTriggers.length > 0 && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50/40 dark:border-rose-500/30 dark:bg-rose-500/10 p-4">
+          <div className="flex items-center gap-1.5 text-sm font-semibold text-rose-800 dark:text-rose-300 mb-2">
+            <AlertTriangle className="w-4 h-4" />
+            Deduction breakdown — {detail.kpi_deduction_amount.toFixed(2)} total ({calc?.kpi_deduction?.total_percent}% off gross)
+          </div>
+          <ul className="space-y-1.5 text-sm">
+            {dedTriggers.map((t) => (
+              <li key={t.kpi_uid} className="flex items-start gap-2">
+                <span className="inline-block mt-1 w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                <div className="flex-1">
+                  <span className="font-medium text-rose-800 dark:text-rose-200">{t.kpi_name}</span>
+                  <span className="text-rose-700/80 dark:text-rose-300/80">
+                    {' '}— {t.metric_type === 'actual_value' ? 'actual value' : t.metric_type} is{' '}
+                    <span className="font-mono">{t.metric_value}</span>
+                    {' '}→ matches band "{t.rule_name}" →{' '}
+                    <span className="font-semibold text-rose-700 dark:text-rose-200">−{t.deduction_percent}%</span>
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div>
         <h3 className="text-sm font-medium text-fg mb-2 flex items-center gap-1.5">
           <Info className="w-4 h-4 text-fg-subtle" /> KPI-wise breakdown
@@ -371,42 +496,69 @@ function PayoutDetailPanel({ detail }: { detail: PayoutDetail }) {
           <thead className="text-2xs uppercase tracking-wider text-fg-subtle bg-sunken">
             <tr>
               <th className="text-left px-3 py-2">KPI</th>
-              <th className="text-right px-3 py-2">Target</th>
-              <th className="text-right px-3 py-2">Actual</th>
-              <th className="text-right px-3 py-2">% of target</th>
-              <th className="text-right px-3 py-2">Pay rate</th>
+              <th className="text-right px-3 py-2">Result</th>
+              <th className="text-right px-3 py-2">Rate / 1%</th>
               <th className="text-right px-3 py-2">Weight</th>
               <th className="text-right px-3 py-2">Payout</th>
+              <th className="text-right px-3 py-2">Deduction</th>
             </tr>
           </thead>
           <tbody>
             {(detail.kpi_results ?? []).map((k) => {
               const pct = k.achievement_percent ?? 0;
               const barColor = pct >= 100 ? 'bg-emerald-400' : pct >= 85 ? 'bg-sky-400' : pct >= 70 ? 'bg-amber-400' : 'bg-rose-400';
+              const trig = dedTriggers.find((t) => t.kpi_uid === k.kpi_uid);
+              const isMonitor = (k.weight ?? 0) === 0;
               return (
-                <tr key={k.kpi_id} className="border-t border-line/60">
+                <tr key={k.kpi_uid} className={cn('border-t border-slate-100 dark:border-slate-800', trig && 'bg-rose-50/30 dark:bg-rose-500/5')}>
                   <td className="px-3 py-2">
                     <div className="font-medium">{k.kpi_name}</div>
-                    <div className="text-2xs font-mono text-fg-subtle">{k.kpi_code}</div>
+                    <div className="text-2xs font-mono text-fg-subtle flex items-center gap-1">
+                      {k.kpi_code}
+                      {isMonitor && <span className="ml-1 px-1 py-px text-[9px] rounded bg-rose-100 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300">monitor</span>}
+                    </div>
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">{k.target_value}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">{k.actual_value}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-2 justify-end">
-                      <span className="tabular-nums font-medium">{pct.toFixed(1)}%</span>
+                      <span className="tabular-nums font-medium">{formatKpiValue(k.actual_value, k.unit)}</span>
                       <div className="w-16 h-1.5 bg-sunken rounded-full overflow-hidden">
                         <div className={cn('h-full', barColor)} style={{ width: `${Math.min(100, pct)}%` }} />
                       </div>
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-fg-muted">{k.slab_rate}{k.slab_type === 'per_achievement_point' ? ' SAR/%' : '%'}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-fg-muted">
+                    {/* Hide rate for monitor KPIs (weight=0) — engine emits a
+                        "linear" fallback rate that doesn't drive payout there. */}
+                    {isMonitor || k.slab_rate <= 0 || k.slab_type === 'linear'
+                      ? <span className="text-fg-subtle">—</span>
+                      : k.slab_rate}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums text-fg-muted">{k.weight}%</td>
-                  <td className="px-3 py-2 text-right font-semibold tabular-nums">{formatCurrency(k.weighted_payout)}</td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                    {isMonitor ? <span className="text-fg-subtle">—</span> : formatCurrency(k.weighted_payout)}
+                  </td>
+                  <td className="px-3 py-2 text-right align-top min-w-[180px]">
+                    {trig ? (
+                      <div className="flex flex-col items-end leading-tight gap-0.5">
+                        <span className="font-semibold tabular-nums text-rose-700 dark:text-rose-300">
+                          −{formatCurrency(detail.gross_payout * (trig.deduction_percent / 100))}
+                        </span>
+                        <span className="text-2xs text-rose-600/70 dark:text-rose-300/70">
+                          −{trig.deduction_percent}%
+                        </span>
+                        <span className="text-2xs text-rose-600/70 dark:text-rose-300/70 break-words">
+                          {trig.rule_name}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-2xs text-fg-subtle">—</span>
+                    )}
+                  </td>
                 </tr>
               );
             })}
             {(!detail.kpi_results || detail.kpi_results.length === 0) && (
-              <tr><td colSpan={7} className="px-3 py-4 text-center text-sm text-fg-subtle">No KPI results recorded.</td></tr>
+              <tr><td colSpan={6} className="px-3 py-4 text-center text-sm text-fg-subtle">No KPI results recorded.</td></tr>
             )}
           </tbody>
         </table>
@@ -439,6 +591,10 @@ function AdjustCard({ icon: Icon, label, value, tone, emphasis }: {
       </div>
     </div>
   );
+}
+
+function safeParseCalc(s: string): CalcDetails | undefined {
+  try { return JSON.parse(s); } catch { return undefined; }
 }
 
 // React.Fragment is used inside PayoutTable

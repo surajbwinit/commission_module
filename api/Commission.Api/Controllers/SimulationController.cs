@@ -13,7 +13,7 @@ public class SimulationController : ControllerBase
 
     public class SimDto
     {
-        public string PlanId { get; set; } = "";
+        public string PlanUid { get; set; } = "";
         public string Period { get; set; } = "";
         public string? CreatedBy { get; set; }
         public Dictionary<string, JsonElement>? Overrides { get; set; }
@@ -25,7 +25,7 @@ public class SimulationController : ControllerBase
         var overrides = dto.Overrides?.ToDictionary(kv => kv.Key, kv => (object?)kv.Value);
         var req = new PipelineRunRequest
         {
-            PlanId = dto.PlanId,
+            PlanUid = dto.PlanUid,
             Period = dto.Period,
             CreatedBy = dto.CreatedBy,
             IsSimulation = true,

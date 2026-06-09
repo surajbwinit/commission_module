@@ -14,18 +14,26 @@ const AGGREGATIONS = [
 const FIELDS = [
   { value: 'amount', label: 'Amount' },
   { value: 'quantity', label: 'Quantity' },
-  { value: 'customer_id', label: 'Customer ID' },
-  { value: 'product_id', label: 'Product ID' },
+  { value: 'customer_uid', label: 'Customer' },
+  { value: 'product_uid', label: 'Product (SKU)' },
 ];
 const TX_TYPES = [
-  { value: 'sale',            label: 'Sale' },
-  { value: 'return',          label: 'Return' },
-  { value: 'collection',      label: 'Collection' },
-  { value: 'crate_load',      label: 'Crate load (helper)' },
-  { value: 'case_delivery',   label: 'Case delivery (helper / driver)' },
-  { value: 'pallet_handling', label: 'Pallet handling (helper)' },
-  { value: 'event',           label: 'Event' },
-  { value: 'all',             label: 'All' },
+  { value: 'sale',                  label: 'Sale' },
+  { value: 'return',                label: 'Return' },
+  { value: 'bad_return',            label: 'Bad Return' },
+  { value: 'collection',            label: 'Collection' },
+  { value: 'target',                label: 'Target (from ETL)' },
+  { value: 'overdue',               label: 'Overdue' },
+  { value: 'outstanding',           label: 'Outstanding' },
+  { value: 'visit',                 label: 'Visit (per schedule)' },
+  { value: 'visit_outside_schedule', label: 'Visit (outside schedule)' },
+  { value: 'scheduled_visit',       label: 'Scheduled visit' },
+  { value: 'zero_sales_customer',   label: 'Zero-sales customer' },
+  { value: 'ir_audit',              label: 'IR audit' },
+  { value: 'crate_load',            label: 'Crate load (helper)' },
+  { value: 'case_delivery',         label: 'Case delivery (helper / driver)' },
+  { value: 'pallet_handling',       label: 'Pallet handling (helper)' },
+  { value: 'event',                 label: 'Event' },
 ];
 const FILTER_FIELDS = [
   { value: 'product_category', label: 'Product Category' },
@@ -64,7 +72,15 @@ const LOOKUP_FIELDS = new Set([
 
 // →·→·→· Types →·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·→·
 export type Filter = { field: string; operator: string; value: unknown };
-export type Metric = { aggregation: string; field: string; transactionType: string; filters: Filter[] };
+export type Metric = {
+  aggregation: string;
+  field: string;
+  /** Single transaction type (legacy). */
+  transactionType?: string;
+  /** Multi-type aggregation. If present, takes precedence over transactionType. */
+  transactionTypes?: string[];
+  filters: Filter[];
+};
 export type Formula =
   | ({ type: 'simple' } & Metric)
   | { type: 'ratio'; numerator: Metric; denominator: Metric; multiplyBy: number }
@@ -183,10 +199,40 @@ function MetricBlock({ metric, onChange, label }: {
           </select>
         </div>
         <div>
-          <label className="text-2xs uppercase text-fg-subtle font-medium">Transaction type</label>
-          <select className="input text-sm mt-1" value={metric.transactionType} onChange={(e) => update('transactionType', e.target.value)}>
-            {TX_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
+          <label className="text-2xs uppercase text-fg-subtle font-medium">Transaction type(s)</label>
+          {/* Multi-select pill picker: click a type to toggle. Shows what's
+              actually stored, including multi-type like ['sale','return']. */}
+          <div className="flex flex-wrap gap-1 mt-1 p-1.5 border border-slate-200 rounded-md bg-white min-h-[36px] dark:bg-slate-900 dark:border-slate-700">
+            {TX_TYPES.map((t) => {
+              const selected = (metric.transactionTypes && metric.transactionTypes.length > 0)
+                ? metric.transactionTypes.includes(t.value)
+                : metric.transactionType === t.value;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => {
+                    const current = metric.transactionTypes && metric.transactionTypes.length > 0
+                      ? [...metric.transactionTypes]
+                      : (metric.transactionType ? [metric.transactionType] : []);
+                    const next = selected ? current.filter((v) => v !== t.value) : [...current, t.value];
+                    // Store as array when multiple, single string when one, undefined when empty.
+                    if (next.length > 1) onChange({ ...metric, transactionType: undefined, transactionTypes: next });
+                    else if (next.length === 1) onChange({ ...metric, transactionType: next[0], transactionTypes: undefined });
+                    else onChange({ ...metric, transactionType: undefined, transactionTypes: undefined });
+                  }}
+                  className={cn(
+                    'px-2 py-0.5 rounded text-2xs font-medium border transition-colors',
+                    selected
+                      ? 'bg-primary-50 border-primary-300 text-primary-700'
+                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50 dark:bg-transparent dark:border-slate-700 dark:text-slate-400'
+                  )}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -233,10 +279,16 @@ function FormulaPreview({ formula }: { formula: Formula }) {
 function metricPreview(m?: Metric) {
   if (!m) return '…';
   const filters = (m.filters || []).map((f) => `${f.field}${f.operator}${typeof f.value === 'object' ? JSON.stringify(f.value) : f.value}`);
-  const where = [
-    m.transactionType && m.transactionType !== 'all' ? `type=${m.transactionType}` : '',
-    ...filters,
-  ].filter(Boolean).join(' AND ');
+  // Multi-type takes precedence over single transactionType (matches engine behavior).
+  let typeClause = '';
+  if (m.transactionTypes && m.transactionTypes.length > 1) {
+    typeClause = `type IN (${m.transactionTypes.join(', ')})`;
+  } else if (m.transactionTypes && m.transactionTypes.length === 1 && m.transactionTypes[0] !== 'all') {
+    typeClause = `type=${m.transactionTypes[0]}`;
+  } else if (m.transactionType && m.transactionType !== 'all') {
+    typeClause = `type=${m.transactionType}`;
+  }
+  const where = [typeClause, ...filters].filter(Boolean).join(' AND ');
   return `${m.aggregation || 'SUM'}(${m.field || 'amount'})${where ? ' WHERE ' + where : ''}`;
 }
 
@@ -247,15 +299,20 @@ export function formulaToPreview(formula: Formula | null): string {
     case 'ratio': {
       const n = metricPreview(formula.numerator);
       const d = metricPreview(formula.denominator);
-      const mult = formula.multiplyBy && formula.multiplyBy !== 1 ? ` → ${formula.multiplyBy}` : '';
+      const mult = formula.multiplyBy && formula.multiplyBy !== 1 ? ` × ${formula.multiplyBy}` : '';
       return `(${n} / ${d})${mult}`;
     }
     case 'growth':
       return `Growth of ${metricPreview(formula.baseMetric)} vs ${(formula.compareWith || 'previous_year').replace(/_/g, ' ')}`;
     case 'team':
       return `${(formula as any).teamAggregation || 'SUM'} of team's ${metricPreview((formula as any).baseMetric)}`;
-    case 'static':
-      return `Static: ${(formula as any).defaultValue ?? 0}${(formula as any).source ? ` (${(formula as any).source})` : ''}`;
+    case 'static': {
+      const src = (formula as any).source;
+      if (src === 'external')  return 'External system feed';
+      if (src === 'manual')    return 'Manually entered each period';
+      if (src === 'placeholder') return 'Placeholder — to be configured';
+      return `Static: ${(formula as any).defaultValue ?? 0}${src ? ` (${src})` : ''}`;
+    }
     default: return '';
   }
 }
@@ -266,6 +323,13 @@ export default function FormulaBuilder({ value, onChange }: {
   onChange: (f: Formula) => void;
 }) {
   const formula: Formula = value && (value as any).type ? value : defaultFormula();
+
+  // Sync the rendered default into parent state so a user who just opens the
+  // builder (without clicking anything) still saves a valid formula.
+  useEffect(() => {
+    if (!value || !(value as any).type) onChange(defaultFormula());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setType = (type: Formula['type']) => {
     switch (type) {

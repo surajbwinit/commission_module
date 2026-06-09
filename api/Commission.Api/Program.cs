@@ -33,6 +33,7 @@ builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 
 builder.Services.AddSingleton<IDb, Db>();
+builder.Services.AddSingleton<ISourceDb, SourceDb>();
 builder.Services.AddSingleton<FormulaEvaluator>();
 builder.Services.AddSingleton<EligibilityEngine>();
 builder.Services.AddSingleton<MappingFilters>();

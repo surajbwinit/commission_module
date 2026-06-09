@@ -17,18 +17,19 @@ public class CronController : ControllerBase
     public async Task<IActionResult> Status()
     {
         var activeMonthly = await _db.QueryDynamicAsync(
-            "SELECT id, name FROM commission_plans WHERE status = 'active' AND plan_type = 'monthly' ORDER BY name");
+            "SELECT uid, name FROM commission_plans WHERE status = 'active' AND plan_type = 'monthly' ORDER BY name");
         var drafts = await _db.QueryDynamicAsync(@"
             SELECT period, COUNT(*) AS draft_count, SUM(net_payout) AS draft_total
             FROM employee_payouts
             WHERE approval_status = 'draft'
             GROUP BY period ORDER BY period DESC");
         var lastRuns = await _db.QueryDynamicAsync(@"
-            SELECT cr.plan_id, cp.name AS plan_name, cr.period, cr.started_at, cr.total_payout, cr.employee_count
+            SELECT cr.plan_uid, cp.name AS plan_name, cr.period, cr.started_time,
+                   cr.total_payout, cr.employee_count
             FROM calculation_runs cr
-            JOIN commission_plans cp ON cp.id = cr.plan_id
+            JOIN commission_plans cp ON cp.uid = cr.plan_uid
             WHERE cr.created_by = 'cron'
-            ORDER BY cr.started_at DESC LIMIT 20");
+            ORDER BY cr.started_time DESC LIMIT 20");
 
         return Ok(new
         {

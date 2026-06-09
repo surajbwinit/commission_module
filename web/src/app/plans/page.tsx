@@ -2,8 +2,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Plus, FileText, Calendar, Users, Target, Search, Sparkles, MapPin,
-  LayoutGrid, Rows3, Copy, Archive, Trash2,
+  Plus, FileText, Calendar, Target, Search,
+  LayoutGrid, Rows3, Archive,
 } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -14,7 +14,7 @@ import { Badge, PillTabs } from '@/components/ui/Pill';
 import PageHero from '@/components/layout/PageHero';
 
 interface Plan {
-  id: string;
+  uid: string;
   name: string;
   description?: string;
   status: 'draft' | 'active' | 'expired' | 'archived';
@@ -22,15 +22,40 @@ interface Plan {
   effective_from: string;
   effective_to: string;
   base_payout: number;
-  currency?: string;
+  currency_uid?: string;
+  currency_code?: string;
+  currency_symbol?: string;
   kpi_count: number;
-  territory_count: number;
-  roles: { id: string; name: string }[];
+  sales_office_count: number;
+  roles: { uid: string; name: string }[];
 }
 
-const STATUS_TONE: Record<Plan['status'], 'success' | 'neutral' | 'warning' | 'danger'> = {
-  active: 'success', draft: 'neutral', expired: 'warning', archived: 'danger',
+// Visually punchy status pill — colored dot + tinted bg + bold text so the
+// status is readable at a glance. Each of the 4 statuses has its own colour.
+const STATUS_STYLES: Record<Plan['status'], { pill: string; dot: string; label: string }> = {
+  active:   { pill: 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30',
+              dot:  'bg-emerald-500', label: 'Active' },
+  draft:    { pill: 'bg-amber-50   text-amber-800  ring-amber-200  dark:bg-amber-500/15  dark:text-amber-300  dark:ring-amber-500/30',
+              dot:  'bg-amber-500',  label: 'Draft' },
+  expired:  { pill: 'bg-slate-100  text-slate-700  ring-slate-200  dark:bg-slate-700/40  dark:text-slate-300  dark:ring-slate-600',
+              dot:  'bg-slate-400',  label: 'Expired' },
+  archived: { pill: 'bg-rose-50    text-rose-700   ring-rose-200   dark:bg-rose-500/15   dark:text-rose-300   dark:ring-rose-500/30',
+              dot:  'bg-rose-500',   label: 'Archived' },
 };
+
+function StatusPill({ status }: { status: Plan['status'] }) {
+  const s = STATUS_STYLES[status] ?? STATUS_STYLES.draft;
+  return (
+    <span className={cn(
+      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ring-inset',
+      s.pill,
+    )}>
+      <span className={cn('inline-block w-1.5 h-1.5 rounded-full', s.dot)} />
+      {s.label}
+    </span>
+  );
+}
+
 
 type ViewMode = 'grid' | 'table';
 
@@ -76,22 +101,22 @@ export default function PlansPage() {
   // Reset selection when filter/search changes
   useEffect(() => { setSelected(new Set()); }, [filter, search]);
 
-  const toggle = (id: string) => {
+  const toggle = (uid: string) => {
     const next = new Set(selected);
-    if (next.has(id)) next.delete(id); else next.add(id);
+    if (next.has(uid)) next.delete(uid); else next.add(uid);
     setSelected(next);
   };
   const toggleAll = () => {
     if (selected.size === visible.length) setSelected(new Set());
-    else setSelected(new Set(visible.map((p) => p.id)));
+    else setSelected(new Set(visible.map((p) => p.uid)));
   };
 
   const bulkArchive = async () => {
     if (selected.size === 0) return;
     if (!confirm(`Archive ${selected.size} plan${selected.size > 1 ? 's' : ''}?`)) return;
     let ok = 0, fail = 0;
-    for (const id of Array.from(selected)) {
-      try { await api.put(`/plans/${id}`, { status: 'archived' }); ok++; }
+    for (const uid of Array.from(selected)) {
+      try { await api.put(`/plans/${uid}`, { status: 'archived' }); ok++; }
       catch { fail++; }
     }
     toast.success(`${ok} archived${fail ? `, ${fail} failed` : ''}`);
@@ -102,12 +127,10 @@ export default function PlansPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHero
-        eyebrow="Setup"
-        title="Plans"
-        subtitle="Design once, run monthly, refine as policy evolves."
+        title="Commission Plans"
         actions={
           <Link href="/plans/new" className="btn-primary">
-            <Plus className="w-4 h-4" /> New plan
+            <Plus className="w-4 h-4" /> New Plan
           </Link>
         }
       />
@@ -196,7 +219,7 @@ export default function PlansPage() {
         />
       ) : view === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {visible.map((p) => <PlanCard key={p.id} plan={p} selected={selected.has(p.id)} onToggle={() => toggle(p.id)} />)}
+          {visible.map((p) => <PlanCard key={p.uid} plan={p} selected={selected.has(p.uid)} onToggle={() => toggle(p.uid)} />)}
         </div>
       ) : (
         <PlanTable
@@ -214,7 +237,7 @@ export default function PlansPage() {
 function PlanCard({ plan, selected, onToggle }: { plan: Plan; selected: boolean; onToggle: () => void }) {
   return (
     <div className={cn(
-      'card p-5 group relative overflow-hidden transition-shadow hover:shadow-md',
+      'card p-6 relative cursor-pointer transition-shadow hover:shadow-md',
       selected && 'ring-2 ring-primary/40'
     )}>
       <input
@@ -222,40 +245,56 @@ function PlanCard({ plan, selected, onToggle }: { plan: Plan; selected: boolean;
         checked={selected}
         onChange={onToggle}
         onClick={(e) => e.stopPropagation()}
-        className="absolute top-3 right-3 rounded border-input"
+        className="absolute top-3 right-3 rounded border-input z-10"
         title="Select plan"
       />
-      <Link href={`/plans/${plan.id}`} className="block">
-        <header className="flex items-start justify-between mb-3 pr-7">
-          <div className="h-10 w-10 rounded-md bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary border border-primary/20">
-            <FileText className="h-5 w-5" />
+      <Link href={`/plans/${plan.uid}`} className="block">
+        {/* Header row: icon chip + name/type on the left, status badge on the right */}
+        <div className="flex items-start justify-between mb-4 pr-7">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
+              <FileText className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-foreground leading-tight truncate">{plan.name}</h3>
+              <p className="text-xs text-muted-foreground mt-0.5 capitalize">{plan.plan_type}</p>
+            </div>
           </div>
-          <Badge tone={STATUS_TONE[plan.status]}>{plan.status}</Badge>
-        </header>
-
-        <h3 className="font-semibold text-foreground text-base leading-tight">{plan.name}</h3>
-        <div className="mt-0.5 text-xs text-muted-foreground capitalize">{plan.plan_type} plan</div>
+          <StatusPill status={plan.status} />
+        </div>
 
         {plan.description && (
-          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{plan.description}</p>
+          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{plan.description}</p>
         )}
 
-        <dl className="mt-4 space-y-1.5 text-xs">
-          <Row icon={Calendar} label="Effective">
-            {formatDate(plan.effective_from)} → {formatDate(plan.effective_to)}
-          </Row>
-          <Row icon={Target} label="KPIs">{plan.kpi_count}</Row>
-          <Row icon={MapPin} label="Territories">{plan.territory_count}</Row>
-          <Row icon={Users}  label="Base payout"><span className="font-semibold tabular-nums">{formatCurrency(plan.base_payout, plan.currency)}</span></Row>
-        </dl>
+        {/* Two-column meta row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 min-w-0">
+            <Calendar className="w-4 h-4 shrink-0" />
+            <span className="truncate">{formatDate(plan.effective_from)} → {formatDate(plan.effective_to)}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Target className="w-4 h-4 shrink-0" />
+            <span>{plan.kpi_count} KPIs</span>
+          </div>
+        </div>
 
+        {/* Base payout */}
+        <div className="flex items-center gap-2 mb-3 text-sm">
+          <span className="text-xs text-muted-foreground">Base payout</span>
+          <span className="font-semibold tabular-nums text-foreground">
+            {formatCurrency(plan.base_payout, plan.currency_code)}
+          </span>
+        </div>
+
+        {/* Role badges */}
         {plan.roles?.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1.5">
             {plan.roles.slice(0, 4).map((r) => (
-              <span key={r.id} className="badge badge-soft">{r.name}</span>
+              <span key={r.uid} className="badge badge-info text-xs">{r.name}</span>
             ))}
             {plan.roles.length > 4 && (
-              <span className="badge badge-soft">+{plan.roles.length - 4} more</span>
+              <span className="badge badge-soft text-xs">+{plan.roles.length - 4}</span>
             )}
           </div>
         )}
@@ -266,44 +305,44 @@ function PlanCard({ plan, selected, onToggle }: { plan: Plan; selected: boolean;
 
 function PlanTable({ plans, selected, onToggle, onToggleAll, allSelected }: {
   plans: Plan[]; selected: Set<string>;
-  onToggle: (id: string) => void; onToggleAll: () => void; allSelected: boolean;
+  onToggle: (uid: string) => void; onToggleAll: () => void; allSelected: boolean;
 }) {
   return (
     <section className="card overflow-hidden">
       <table className="w-full text-sm">
-        <thead className="text-[10px] uppercase tracking-[0.1em] text-muted-foreground bg-muted/40 border-b">
+        <thead className="text-[10px] uppercase tracking-[0.1em] text-slate-500 bg-slate-50 border-b border-slate-200 dark:bg-slate-800 dark:border-slate-700">
           <tr>
             <th className="pl-4 pr-2 py-3 w-8">
-              <input type="checkbox" checked={allSelected} onChange={onToggleAll} className="rounded border-input" />
+              <input type="checkbox" checked={allSelected} onChange={onToggleAll} className="rounded border-slate-300" />
             </th>
             <th className="text-left px-2 py-3 font-semibold">Plan</th>
             <th className="text-left px-2 py-3 font-semibold">Status</th>
             <th className="text-left px-2 py-3 font-semibold">Type</th>
             <th className="text-left px-2 py-3 font-semibold">Effective</th>
             <th className="text-right px-2 py-3 font-semibold">KPIs</th>
-            <th className="text-right px-2 py-3 font-semibold">Territories</th>
+            <th className="text-right px-2 py-3 font-semibold">Sales offices</th>
             <th className="text-right pl-2 pr-4 py-3 font-semibold">Base payout</th>
           </tr>
         </thead>
         <tbody>
           {plans.map((p) => (
-            <tr key={p.id} className={cn(
-              'border-t hover:bg-accent transition-colors',
-              selected.has(p.id) && 'bg-primary/5'
+            <tr key={p.uid} className={cn(
+              'border-t border-slate-100 hover:bg-slate-50 transition-colors dark:border-slate-800 dark:hover:bg-slate-800/50',
+              selected.has(p.uid) && 'bg-primary-50/50 dark:bg-primary-900/10'
             )}>
               <td className="pl-4 pr-2 py-3">
-                <input type="checkbox" checked={selected.has(p.id)} onChange={() => onToggle(p.id)} className="rounded border-input" />
+                <input type="checkbox" checked={selected.has(p.uid)} onChange={() => onToggle(p.uid)} className="rounded border-slate-300" />
               </td>
               <td className="px-2 py-3">
-                <Link href={`/plans/${p.id}`} className="font-medium hover:underline">{p.name}</Link>
-                {p.description && <div className="text-xs text-muted-foreground line-clamp-1">{p.description}</div>}
+                <Link href={`/plans/${p.uid}`} className="font-medium text-slate-800 hover:text-primary-600 dark:text-slate-100">{p.name}</Link>
+                {p.description && <div className="text-xs text-slate-500 line-clamp-1">{p.description}</div>}
               </td>
-              <td className="px-2 py-3"><Badge tone={STATUS_TONE[p.status]}>{p.status}</Badge></td>
-              <td className="px-2 py-3 capitalize text-muted-foreground">{p.plan_type}</td>
-              <td className="px-2 py-3 font-mono text-xs text-muted-foreground tabular-nums">{formatDate(p.effective_from)} → {formatDate(p.effective_to)}</td>
+              <td className="px-2 py-3"><StatusPill status={p.status} /></td>
+              <td className="px-2 py-3 capitalize text-slate-500">{p.plan_type}</td>
+              <td className="px-2 py-3 font-mono text-xs text-slate-500 tabular-nums">{formatDate(p.effective_from)} → {formatDate(p.effective_to)}</td>
               <td className="px-2 py-3 text-right tabular-nums">{p.kpi_count}</td>
-              <td className="px-2 py-3 text-right tabular-nums">{p.territory_count}</td>
-              <td className="pl-2 pr-4 py-3 text-right font-semibold tabular-nums">{formatCurrency(p.base_payout, p.currency)}</td>
+              <td className="px-2 py-3 text-right tabular-nums">{p.sales_office_count}</td>
+              <td className="pl-2 pr-4 py-3 text-right font-semibold tabular-nums">{formatCurrency(p.base_payout, p.currency_code)}</td>
             </tr>
           ))}
         </tbody>
@@ -312,13 +351,3 @@ function PlanTable({ plans, selected, onToggle, onToggleAll, allSelected }: {
   );
 }
 
-function Row({ icon: Icon, label, children }: { icon: React.ComponentType<{ className?: string }>; label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5">
-        <Icon className="w-3.5 h-3.5" /> {label}
-      </span>
-      <span className="text-foreground">{children}</span>
-    </div>
-  );
-}

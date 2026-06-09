@@ -14,7 +14,7 @@ import FormulaBuilder, { type Formula, formulaToPreview } from '@/components/For
 import PageHero from '@/components/layout/PageHero';
 
 interface Kpi {
-  id: string;
+  uid: string;
   name: string;
   code: string;
   category: string;
@@ -22,7 +22,7 @@ interface Kpi {
   unit: string;
   direction: 'higher_is_better' | 'lower_is_better';
   formula?: string;
-  applicable_roles?: string[];
+  applicable_role_uids?: string[];
 }
 
 const CATEGORY_COLOR: Record<string, { bg: string; text: string; ring: string }> = {
@@ -74,7 +74,7 @@ export default function KpiLibraryPage() {
   const remove = async (k: Kpi) => {
     if (!confirm(`Remove KPI "${k.name}"?`)) return;
     try {
-      await api.delete(`/kpis/${k.id}`);
+      await api.delete(`/kpis/${k.uid}`);
       toast.success('KPI removed');
       load();
     } catch (e: any) { toast.error(e.message); }
@@ -83,10 +83,7 @@ export default function KpiLibraryPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHero
-        eyebrow="Setup"
-        title="KPI"
-        emphasis="library"
-        subtitle="Reusable performance indicators — define once, use in many plans."
+        title="KPI Library"
         actions={
           <button onClick={() => setCreating(true)} className="btn-primary">
             <Plus className="w-4 h-4" /> New KPI
@@ -129,7 +126,7 @@ export default function KpiLibraryPage() {
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {visible.map((k) => <KpiCard key={k.id} kpi={k} onEdit={() => setEditing(k)} onRemove={() => remove(k)} />)}
+          {visible.map((k) => <KpiCard key={k.uid} kpi={k} onEdit={() => setEditing(k)} onRemove={() => remove(k)} />)}
         </div>
       )}
 
@@ -167,7 +164,7 @@ function KpiCard({ kpi, onEdit, onRemove }: { kpi: Kpi; onEdit: () => void; onRe
       </h3>
       <code className="block text-2xs font-mono uppercase text-fg-subtle mt-0.5">{kpi.code}</code>
       {kpi.description && <p className="text-xs text-fg-muted mt-2 line-clamp-2">{kpi.description}</p>}
-      <div className="mt-3 bg-muted/60 text-foreground border font-mono text-2xs rounded-md px-2.5 py-1.5 leading-relaxed truncate" title={preview}>
+      <div className="mt-3 bg-muted/60 text-foreground border font-mono text-2xs rounded-md px-2.5 py-1.5 leading-relaxed break-words whitespace-normal" title={preview}>
         {preview || '— no formula —'}
       </div>
       <div className="mt-3 flex items-center justify-between text-2xs">
@@ -303,14 +300,17 @@ function KpiModal({ open, kpi, onClose, onSaved }: { open: boolean; kpi: Kpi | n
   const save = async () => {
     if (!draft.name || !draft.code) { toast.error('Name and code are required'); return; }
     setSaving(true);
+    // Treat an empty formula object ({}) the same as no formula — without a
+    // `type` field the backend's ValidateFormula will reject it as invalid.
+    const hasFormula = draft.formulaObj && (draft.formulaObj as any).type;
     const payload: any = {
       name: draft.name, code: draft.code, category: draft.category, description: draft.description,
       unit: draft.unit, direction: draft.direction,
-      formula: draft.formulaObj ? JSON.stringify(draft.formulaObj) : '',
+      formula: hasFormula ? JSON.stringify(draft.formulaObj) : '',
       applicable_roles: [],
     };
     try {
-      if (kpi) await api.put(`/kpis/${kpi.id}`, payload);
+      if (kpi) await api.put(`/kpis/${kpi.uid}`, payload);
       else      await api.post('/kpis', payload);
       toast.success(kpi ? 'KPI updated' : 'KPI created');
       onSaved();
@@ -390,7 +390,7 @@ function KpiModal({ open, kpi, onClose, onSaved }: { open: boolean; kpi: Kpi | n
         <label>
           <span className="label">Unit <span className="text-fg-subtle normal-case">(what kind of number)</span></span>
           <select className="input" value={draft.unit ?? 'currency'} onChange={(e) => setDraft({ ...draft, unit: e.target.value })}>
-            <option value="currency">Currency (SAR, AED)</option>
+            <option value="currency">Currency (money amount)</option>
             <option value="percentage">Percentage (0-100)</option>
             <option value="number">Number (crates, units, count)</option>
           </select>
