@@ -219,7 +219,8 @@ CREATE TABLE IF NOT EXISTS rules (
   parent_rule_id     TEXT REFERENCES rules(id) ON DELETE CASCADE,
   dimension          TEXT NOT NULL
                        CHECK (dimension IN
-                         ('product','customer','product_category','product_sku',
+                         ('product','customer','product_category','product_subcategory',
+                          'product_brand','product_sku',
                           'customer_channel','customer_group','territory','transaction_type')),
   rule_type          TEXT NOT NULL CHECK (rule_type IN ('include','exclude')),
   match_type         TEXT NOT NULL DEFAULT 'exact'

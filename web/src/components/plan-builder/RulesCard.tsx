@@ -28,6 +28,13 @@ interface Plan {
   rule_sets?: RuleSet[];
 }
 
+/** match_values may arrive as a JSON string (jsonb passthrough) — always coerce to array */
+function toArray(v: unknown): any[] {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') { try { const p = JSON.parse(v); if (Array.isArray(p)) return p; } catch {} }
+  return [];
+}
+
 const DIMENSIONS = [
   { value: 'product_brand',       label: 'Product brand',       lookup: true },
   { value: 'product_category',    label: 'Product category',    lookup: true },
@@ -56,7 +63,7 @@ export default function RulesCard({ plan, onChange }: { plan: Plan; onChange: ()
           rules: rs.rules.map((r) => ({
             dimension: r.dimension, ruleType: r.rule_type,
             matchType: r.match_type ?? 'exact',
-            matchValues: r.match_values, priority: r.priority ?? 0,
+            matchValues: toArray(r.match_values), priority: r.priority ?? 0,
           })),
         })),
       });
@@ -144,7 +151,8 @@ function RuleRow({ rule, onChange, onRemove }: { rule: Rule; onChange: (p: Parti
     }
   }, [rule.dimension]);
 
-  const selectedSet = new Set((rule.match_values ?? []).map(String));
+  const matchValues = toArray(rule.match_values);
+  const selectedSet = new Set(matchValues.map(String));
 
   return (
     <div className="flex items-start gap-2">
@@ -174,8 +182,8 @@ function RuleRow({ rule, onChange, onRemove }: { rule: Rule; onChange: (p: Parti
                   type="button"
                   onClick={() => {
                     const next = on
-                      ? rule.match_values.filter((v) => String(v) !== String(o.value))
-                      : [...rule.match_values, o.value];
+                      ? matchValues.filter((v) => String(v) !== String(o.value))
+                      : [...matchValues, o.value];
                     onChange({ match_values: next });
                   }}
                   className={cn(
@@ -194,7 +202,7 @@ function RuleRow({ rule, onChange, onRemove }: { rule: Rule; onChange: (p: Parti
           <input
             className="input text-xs"
             placeholder="Enter values, comma-separated"
-            value={(rule.match_values ?? []).join(', ')}
+            value={matchValues.join(', ')}
             onChange={(e) => onChange({ match_values: e.target.value.split(',').map((v) => v.trim()).filter(Boolean) })}
           />
         )}

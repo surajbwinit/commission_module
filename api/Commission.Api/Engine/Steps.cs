@@ -47,24 +47,10 @@ public static class Steps
                 foreach (var k in kids) queue.Enqueue(k);
         }
 
-        // Supervisor fallback: if scope is just self, expand to sales-office peers.
-        // Note: ERP doesn't have territory hierarchy — sales_offices is flat under org_uid.
-        var supervisorRoleHints = new HashSet<string> {
-            "ROUTE_SUP", "SS", "ASM", "RSM", "DEPOT_MGR"
-        };
-        // role_uid is opaque — we can't pattern-match without the role's code joined in. Skip for now;
-        // the role-aware expansion can be re-added when employees.role_code is reliably populated.
-        if (scoped.Count <= 1 && !string.IsNullOrEmpty(salesOfficeUid))
-        {
-            var rows = await db.QueryDynamicAsync(
-                "SELECT uid FROM employees WHERE is_active = TRUE AND uid <> @e AND sales_office_uid = @o",
-                new { e = empUid, o = salesOfficeUid }, ct: ct);
-            foreach (var r in rows)
-            {
-                string uid = r.uid;
-                if (visited.Add(uid)) scoped.Add(uid);
-            }
-        }
+        // Scope stays per-employee (self + reports_to subordinates from the BFS above).
+        // The old sales-office-peer fallback is removed: with a single flat office it
+        // widened every salesman's scope to the entire company, making all KPI
+        // achievements identical. Managers still aggregate via the reports_to chain.
 
         // Pull transactions joined with products + customers
         var txns = (await db.QueryAsync<Transaction>(@"

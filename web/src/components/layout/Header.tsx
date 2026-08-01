@@ -18,7 +18,7 @@ interface EmployeeRow {
 function buildPeriods() {
   const months: string[] = [];
   const now = new Date();
-  for (let i = -2; i < 12; i++) {
+  for (let i = -12; i < 12; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
