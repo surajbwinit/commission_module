@@ -42,24 +42,48 @@ export default function ScopeCard({ plan, onChange }: { plan: Plan; onChange: ()
     setter(next);
   };
 
-  // Employees filtered by selected roles
+  // Employees filtered by selected roles. The plan's SAVED whitelist members
+  // sort to the top so the current scope is visible without scrolling.
+  // (Sorting keys off the saved scope, not live clicks, so rows don't jump
+  // around while the user is ticking boxes.)
   const eligibleEmployees = useMemo(() => {
-    const pool = selectedRoles.size === 0
+    const saved = new Set((plan.employees ?? []).map(e => e.uid));
+    let pool = selectedRoles.size === 0
       ? allEmployees
       : allEmployees.filter(e => selectedRoles.has(e.role_uid));
-    if (!empSearch) return pool;
-    const q = empSearch.toLowerCase();
-    return pool.filter(e =>
-      e.name.toLowerCase().includes(q) ||
-      (e.email ?? '').toLowerCase().includes(q) ||
-      (e.role_name_en ?? '').toLowerCase().includes(q) ||
-      (e.sales_office_name ?? '').toLowerCase().includes(q)
-    );
-  }, [allEmployees, selectedRoles, empSearch]);
+    if (empSearch) {
+      const q = empSearch.toLowerCase();
+      pool = pool.filter(e =>
+        e.name.toLowerCase().includes(q) ||
+        (e.email ?? '').toLowerCase().includes(q) ||
+        (e.role_name_en ?? '').toLowerCase().includes(q) ||
+        (e.sales_office_name ?? '').toLowerCase().includes(q)
+      );
+    }
+    return [...pool].sort((a, b) => {
+      const sa = saved.has(a.uid) ? 0 : 1;
+      const sb = saved.has(b.uid) ? 0 : 1;
+      if (sa !== sb) return sa - sb;
+      return a.name.localeCompare(b.name);
+    });
+  }, [allEmployees, selectedRoles, empSearch, plan.employees]);
 
-  // Drop selected employees whose role is no longer selected
+  // Re-sync local selection when the plan's saved scope arrives/changes.
+  // Without this, the selection captured by useState on first render goes stale
+  // (and the effect below used to wipe it before /employees finished loading).
+  const savedRoleUids = (plan.roles ?? []).map(r => r.uid).join(',');
+  const savedEmpUids  = (plan.employees ?? []).map(e => e.uid).join(',');
   useEffect(() => {
-    if (selectedRoles.size === 0) return;
+    setSelectedRoles(new Set((plan.roles ?? []).map(r => r.uid)));
+    setSelectedEmployees(new Set((plan.employees ?? []).map(e => e.uid)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan.uid, savedRoleUids, savedEmpUids]);
+
+  // Drop selected employees whose role is no longer selected.
+  // Guard: never prune before the employee master has loaded — an empty
+  // allEmployees would wipe the saved whitelist on mount.
+  useEffect(() => {
+    if (selectedRoles.size === 0 || allEmployees.length === 0) return;
     const ok = new Set<string>();
     selectedEmployees.forEach(uid => {
       const emp = allEmployees.find(e => e.uid === uid);

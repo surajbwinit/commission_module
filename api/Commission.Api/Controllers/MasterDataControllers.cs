@@ -168,19 +168,39 @@ public class TransactionsController : ControllerBase
     private readonly IDb _db;
     public TransactionsController(IDb db) { _db = db; }
 
+    // Known transaction_type values — `type` query values are validated against
+    // this set so the filter can never inject SQL.
+    private static readonly HashSet<string> KnownTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "sale", "return", "bad_return", "collection", "target",
+        "scheduled_visit", "visit", "visit_outside_schedule",
+    };
+
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] string? period,
         [FromQuery] string? empUid,
-        [FromQuery] int? limit)
+        [FromQuery] string? type,
+        [FromQuery] int? limit,
+        [FromQuery] int? offset)
     {
         var lim = Math.Min(limit ?? 100, 1000);
+        var off = Math.Max(offset ?? 0, 0);
         var clauses = new List<string>();
-        var args = new Dictionary<string, object>();
+        var args = new Dictionary<string, object> { ["lim"] = lim, ["off"] = off };
         if (period != null) { clauses.Add("t.period = @p"); args["p"] = period; }
         if (empUid != null) { clauses.Add("t.emp_uid = @e"); args["e"] = empUid; }
+
+        // type = single value or comma-list (e.g. "visit,visit_outside_schedule")
+        if (!string.IsNullOrWhiteSpace(type))
+        {
+            var types = type.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                            .Where(t => KnownTypes.Contains(t)).ToArray();
+            if (types.Length > 0) { clauses.Add("t.transaction_type = ANY(@types)"); args["types"] = types; }
+        }
         var where = clauses.Count == 0 ? "" : " WHERE " + string.Join(" AND ", clauses);
 
+        // Secondary sort on id makes OFFSET paging deterministic for same-day rows.
         return Ok(await _db.QueryDynamicAsync($@"
             SELECT t.*,
                    e.name AS employee_name,
@@ -191,7 +211,28 @@ public class TransactionsController : ControllerBase
             LEFT JOIN customers c ON t.customer_uid = c.uid
             LEFT JOIN products  p ON t.product_uid  = p.uid
             {where}
-            ORDER BY t.transaction_date DESC LIMIT {lim}", args));
+            ORDER BY t.transaction_date DESC, t.id DESC
+            LIMIT @lim OFFSET @off", args));
+    }
+
+    /// Per-type row counts and amount sums for the period — the transactions
+    /// page derives its summary cards, tab counts, and lazy-load totals from
+    /// this instead of the loaded slice.
+    [HttpGet("summary")]
+    public async Task<IActionResult> Summary([FromQuery] string? period, [FromQuery] string? empUid)
+    {
+        var clauses = new List<string>();
+        var args = new Dictionary<string, object>();
+        if (period != null) { clauses.Add("period = @p"); args["p"] = period; }
+        if (empUid != null) { clauses.Add("emp_uid = @e"); args["e"] = empUid; }
+        var where = clauses.Count == 0 ? "" : " WHERE " + string.Join(" AND ", clauses);
+
+        return Ok(await _db.QueryDynamicAsync($@"
+            SELECT transaction_type, COUNT(*) AS row_count, COALESCE(SUM(amount), 0) AS total_amount
+            FROM transactions
+            {where}
+            GROUP BY transaction_type
+            ORDER BY transaction_type", args));
     }
 }
 

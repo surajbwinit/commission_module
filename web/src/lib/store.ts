@@ -8,6 +8,10 @@ export interface Persona {
 }
 
 interface AppState {
+  isAuthenticated: boolean;
+  login: () => void;
+  logout: () => void;
+
   currentPersona: Persona | null;
   setPersona: (p: Persona | null) => void;
 
@@ -19,16 +23,27 @@ interface AppState {
   setSidebarCollapsed: (v: boolean) => void;
 }
 
-const currentPeriod = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-};
+// Default period shown on load — May 2026 is the month the loaded SADAFCO data covers.
+// Switch back to the current month once live monthly data feeds begin.
+const DEFAULT_PERIOD = '2026-05';
+
+const AUTH_KEY = 'ciq-authenticated';
 
 export const useAppStore = create<AppState>((set) => ({
+  isAuthenticated: typeof window !== 'undefined' && window.localStorage.getItem(AUTH_KEY) === '1',
+  login: () => {
+    if (typeof window !== 'undefined') window.localStorage.setItem(AUTH_KEY, '1');
+    set({ isAuthenticated: true });
+  },
+  logout: () => {
+    if (typeof window !== 'undefined') window.localStorage.removeItem(AUTH_KEY);
+    set({ isAuthenticated: false });
+  },
+
   currentPersona: null,
   setPersona: (currentPersona) => set({ currentPersona }),
 
-  selectedPeriod: currentPeriod(),
+  selectedPeriod: DEFAULT_PERIOD,
   setSelectedPeriod: (selectedPeriod) => set({ selectedPeriod }),
 
   sidebarCollapsed: typeof window !== 'undefined' && window.localStorage.getItem('sidebar-collapsed') === '1',

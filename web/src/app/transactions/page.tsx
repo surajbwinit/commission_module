@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Receipt, ShoppingCart, RotateCcw, Wallet, Calendar, Upload } from 'lucide-react';
+import { Receipt, ShoppingCart, RotateCcw, Wallet, Calendar, Upload, CalendarCheck, MapPin, Target } from 'lucide-react';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { useAppStore } from '@/lib/store';
@@ -13,7 +13,7 @@ import { Pagination } from '@/components/ui/Pagination';
 
 interface Tx {
   uid: string;
-  transaction_type: 'sale' | 'return' | 'collection' | 'crate_load' | 'case_delivery' | 'pallet_handling';
+  transaction_type: string;
   emp_uid: string;
   customer_uid?: string; customer_name?: string; customer_code?: string;
   product_uid?: string;  product_name?: string;  product_code?: string;
@@ -24,47 +24,86 @@ interface Tx {
   period: string;
 }
 
+interface TypeSummary {
+  transaction_type: string;
+  row_count: number;
+  total_amount: number;
+}
+
 const TYPE_META: Record<string, { tone: 'success' | 'warning' | 'info' | 'soft' | 'primary'; icon: any }> = {
-  sale:             { tone: 'success', icon: ShoppingCart },
-  return:           { tone: 'warning', icon: RotateCcw },
-  collection:       { tone: 'info',    icon: Wallet },
-  crate_load:       { tone: 'primary', icon: Receipt },
-  case_delivery:    { tone: 'primary', icon: Receipt },
-  pallet_handling:  { tone: 'primary', icon: Receipt },
+  sale:                   { tone: 'success', icon: ShoppingCart },
+  return:                 { tone: 'warning', icon: RotateCcw },
+  bad_return:             { tone: 'warning', icon: RotateCcw },
+  collection:             { tone: 'info',    icon: Wallet },
+  scheduled_visit:        { tone: 'soft',    icon: CalendarCheck },
+  visit:                  { tone: 'primary', icon: MapPin },
+  visit_outside_schedule: { tone: 'primary', icon: MapPin },
+  target:                 { tone: 'info',    icon: Target },
 };
+
+// Tab -> transaction_type filter sent to the API (empty = no filter)
+const TABS: { value: string; label: string; types: string[] }[] = [
+  { value: 'all',        label: 'All',         types: [] },
+  { value: 'sale',       label: 'Sales',       types: ['sale'] },
+  { value: 'return',     label: 'Returns',     types: ['return'] },
+  { value: 'bad_return', label: 'Bad returns', types: ['bad_return'] },
+  { value: 'collection', label: 'Collections', types: ['collection'] },
+  { value: 'visits',     label: 'Visits',      types: ['scheduled_visit', 'visit', 'visit_outside_schedule'] },
+  { value: 'target',     label: 'Targets',     types: ['target'] },
+];
 
 export default function TransactionsPage() {
   const period = useAppStore((s) => s.selectedPeriod);
   const [rows, setRows] = useState<Tx[]>([]);
+  const [summary, setSummary] = useState<TypeSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [type, setType] = useState<'all' | string>('all');
+  const [type, setType] = useState<string>('all');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(100);
+  // Fallback when /transactions/summary is unavailable (older API): a full
+  // page implies at least one more page exists.
+  const [lastPageFull, setLastPageFull] = useState(false);
 
+  const countOf = (types: string[]) =>
+    summary.filter((s) => types.length === 0 || types.includes(s.transaction_type))
+           .reduce((n, s) => n + Number(s.row_count), 0);
+  const sumOf = (types: string[]) =>
+    summary.filter((s) => types.includes(s.transaction_type))
+           .reduce((n, s) => n + Number(s.total_amount), 0);
+
+  const activeTab = TABS.find((t) => t.value === type) ?? TABS[0];
+  // Exact total from the summary endpoint; without it, a moving lower bound
+  // keeps the Next button usable.
+  const knownTotal = summary.length > 0 ? countOf(activeTab.types) : null;
+  const total = knownTotal ?? (page - 1) * pageSize + rows.length + (lastPageFull ? pageSize : 0);
+
+  // True totals for the cards/tabs
   useEffect(() => {
-    setLoading(true);
-    api.get<unknown, Tx[]>(`/transactions?period=${period}&limit=500`)
-    // NB: server fields are emp_uid / customer_uid / product_uid; joined name+code fields are flattened in
-      .then(setRows)
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-    setPage(1);
+    api.get<unknown, TypeSummary[]>(`/transactions/summary?period=${period}`)
+      .then(setSummary)
+      .catch(() => setSummary([]));
   }, [period]);
 
-  // Reset to page 1 when filter changes
-  useEffect(() => { setPage(1); }, [type]);
+  // Reset to page 1 when the slice changes
+  useEffect(() => { setPage(1); }, [period, type, pageSize]);
 
-  const counts = rows.reduce((acc, t) => { acc[t.transaction_type] = (acc[t.transaction_type] ?? 0) + 1; return acc; }, {} as Record<string, number>);
-  const filtered = type === 'all' ? rows : rows.filter((t) => t.transaction_type === type);
-  const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-  // Summary — across all filtered rows (not just the current page)
-  const totals = filtered.reduce((acc, t) => {
-    if (t.transaction_type === 'sale')       acc.sale += t.amount;
-    if (t.transaction_type === 'return')     acc.return += t.amount;
-    if (t.transaction_type === 'collection') acc.collection += t.amount;
-    return acc;
-  }, { sale: 0, return: 0, collection: 0 });
+  // Server-side page fetch
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const typeParam = activeTab.types.length ? `&type=${activeTab.types.join(',')}` : '';
+    const offset = (page - 1) * pageSize;
+    api.get<unknown, Tx[]>(`/transactions?period=${period}&limit=${pageSize}&offset=${offset}${typeParam}`)
+      .then((data) => {
+        if (cancelled) return;
+        setRows(data);
+        setLastPageFull(data.length === pageSize);
+      })
+      .catch(() => { if (!cancelled) setRows([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, type, page, pageSize]);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -79,30 +118,28 @@ export default function TransactionsPage() {
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <SummaryCard tone="indigo"  label="Total rows" value={rows.length.toLocaleString()} icon={Receipt} />
-        <SummaryCard tone="emerald" label="Total sales" value={formatCurrency(totals.sale)} icon={ShoppingCart} />
-        <SummaryCard tone="amber"   label="Total returns" value={formatCurrency(totals.return)} icon={RotateCcw} />
-        <SummaryCard tone="sky"     label="Total collected" value={formatCurrency(totals.collection)} icon={Wallet} />
+        <SummaryCard tone="indigo"  label="Total rows" value={countOf([]).toLocaleString()} icon={Receipt} />
+        <SummaryCard tone="emerald" label="Total sales" value={formatCurrency(sumOf(['sale']))} icon={ShoppingCart} />
+        <SummaryCard tone="amber"   label="Total returns" value={formatCurrency(sumOf(['return', 'bad_return']))} icon={RotateCcw} />
+        <SummaryCard tone="sky"     label="Total collected" value={formatCurrency(sumOf(['collection']))} icon={Wallet} />
       </div>
 
       <PillTabs
         value={type}
         onChange={setType}
-        options={[
-          { value: 'all',        label: 'All',         count: rows.length },
-          { value: 'sale',       label: 'Sales',       count: counts.sale ?? 0 },
-          { value: 'return',     label: 'Returns',     count: counts.return ?? 0 },
-          { value: 'collection', label: 'Collections', count: counts.collection ?? 0 },
-        ]}
+        options={TABS.map((t) => ({ value: t.value, label: t.label, count: countOf(t.types) }))}
       />
 
-      {loading ? (
+      {loading && rows.length === 0 ? (
         <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}</div>
-      ) : visible.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState icon={Receipt} title="No transactions" description="Try changing the period or filter." />
       ) : (
         <section className="card overflow-hidden">
-          <table className="w-full text-sm">
+          {/* Keep the previous page visible (dimmed) while the next one loads —
+              swapping to skeletons collapses the page height and throws the
+              scroll position to the top. */}
+          <table className={cn('w-full text-sm transition-opacity duration-150', loading && 'opacity-50 pointer-events-none')}>
             <thead className="text-2xs uppercase tracking-wider text-fg-subtle bg-sunken/60">
               <tr>
                 <th className="text-left pl-5 pr-2 py-2.5">Date</th>
@@ -115,7 +152,7 @@ export default function TransactionsPage() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((t) => {
+              {rows.map((t) => {
                 const m = TYPE_META[t.transaction_type] ?? TYPE_META.sale;
                 const Icon = m.icon;
                 return (
@@ -129,7 +166,7 @@ export default function TransactionsPage() {
                     <td className="px-2 py-2 text-slate-500 truncate max-w-[180px]">{t.product_name ?? '—'}</td>
                     <td className="px-2 py-2 text-right tabular-nums">{t.quantity}</td>
                     <td className={cn('pl-2 pr-5 py-2 text-right font-semibold tabular-nums',
-                      t.transaction_type === 'return' ? 'text-rose-600' : ''
+                      t.transaction_type === 'return' || t.transaction_type === 'bad_return' ? 'text-rose-600' : ''
                     )}>{formatCurrency(t.amount)}</td>
                   </tr>
                 );
@@ -137,11 +174,12 @@ export default function TransactionsPage() {
             </tbody>
           </table>
           <Pagination
-            total={filtered.length}
+            total={total}
             page={page}
             pageSize={pageSize}
             onPageChange={setPage}
-            onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[50, 100, 200, 500]}
           />
         </section>
       )}

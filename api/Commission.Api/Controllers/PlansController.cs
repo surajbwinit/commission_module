@@ -98,8 +98,19 @@ public class PlansController : ControllerBase
         var ruleSets = (await _db.QueryDynamicAsync(
             "SELECT * FROM rule_sets WHERE plan_uid = @uid", new { uid })).ToList();
         foreach (var rs in ruleSets)
-            ((IDictionary<string, object?>)rs)["rules"] = await _db.QueryDynamicAsync(
-                "SELECT * FROM rules WHERE rule_set_uid = @r", new { r = (string)rs.uid });
+        {
+            var rules = (await _db.QueryDynamicAsync(
+                "SELECT * FROM rules WHERE rule_set_uid = @r", new { r = (string)rs.uid })).ToList();
+            // Npgsql returns jsonb as string; parse so clients get real JSON arrays/objects
+            foreach (var r in rules)
+            {
+                var rd = (IDictionary<string, object?>)r;
+                foreach (var col in new[] { "match_values", "conditional_logic" })
+                    if (rd.TryGetValue(col, out var v) && v is string s && !string.IsNullOrWhiteSpace(s))
+                        try { rd[col] = JsonSerializer.Deserialize<JsonElement>(s); } catch { /* leave as string */ }
+            }
+            ((IDictionary<string, object?>)rs)["rules"] = rules;
+        }
         dict["rule_sets"] = ruleSets;
 
         dict["eligibility_rules"] = await _db.QueryDynamicAsync(

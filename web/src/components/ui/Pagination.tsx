@@ -1,5 +1,5 @@
 'use client';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PaginationProps {
@@ -41,13 +41,16 @@ export function Pagination({
         {onPageSizeChange && (
           <label className="hidden md:inline-flex items-center gap-1.5">
             <span>Per page</span>
-            <select
-              value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="input h-7 py-0 text-xs w-auto pr-7"
-            >
-              {pageSizeOptions.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
+            <span className="relative inline-flex items-center">
+              <select
+                value={pageSize}
+                onChange={(e) => onPageSizeChange(Number(e.target.value))}
+                className="appearance-none h-7 pl-2.5 pr-7 rounded border bg-background text-xs tabular-nums text-muted-foreground cursor-pointer transition-colors hover:bg-accent hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                {pageSizeOptions.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-muted-foreground/60" />
+            </span>
           </label>
         )}
       </div>

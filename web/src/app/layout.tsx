@@ -2,8 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
-import Explorer from '@/components/layout/Explorer';
-import Header from '@/components/layout/Header';
+import AppShell from '@/components/layout/AppShell';
 import { ThemeProvider, themeBootstrapScript } from '@/components/theme/ThemeProvider';
 
 const inter = Inter({
@@ -41,15 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               error:   { iconTheme: { primary: '#ef4444', secondary: '#fef2f2' } },
             }}
           />
-          <div className="flex h-screen overflow-hidden">
-            <Explorer />
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <Header />
-              <main className="flex-1 overflow-y-auto p-6">
-                {children}
-              </main>
-            </div>
-          </div>
+          <AppShell>{children}</AppShell>
         </ThemeProvider>
       </body>
     </html>
