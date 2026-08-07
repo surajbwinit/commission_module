@@ -21,6 +21,12 @@ interface AppState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
   setSidebarCollapsed: (v: boolean) => void;
+
+  // Human-readable labels for dynamic route segments (e.g. /plans/<uid> -> plan
+  // name). Detail pages publish theirs once loaded so the header breadcrumb can
+  // show a real name instead of the raw uid.
+  crumbLabels: Record<string, string>;
+  setCrumbLabel: (path: string, label: string) => void;
 }
 
 // Default period shown on load — May 2026 is the month the loaded SADAFCO data covers.
@@ -53,4 +59,9 @@ export const useAppStore = create<AppState>((set) => ({
     return { sidebarCollapsed: v };
   }),
   setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),
+
+  crumbLabels: {},
+  setCrumbLabel: (path, label) => set((s) => (
+    s.crumbLabels[path] === label ? s : { crumbLabels: { ...s.crumbLabels, [path]: label } }
+  )),
 }));

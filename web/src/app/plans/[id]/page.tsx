@@ -16,6 +16,7 @@ import {
 import PageHero from '@/components/layout/PageHero';
 import { Tabs } from '@/components/ui/Tabs';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/lib/store';
 
 // Status pill matching the plans-list page — one colour per status:
 // active=green, draft=amber, expired=grey, archived=red.
@@ -59,6 +60,7 @@ export default function PlanBuilderPage() {
   const uid = params?.id;
   const [plan, setPlan] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const setCrumbLabel = useAppStore((s) => s.setCrumbLabel);
   const [tab, setTab] = useState<TabId>(() => {
     if (typeof window === 'undefined') return 'plan';
     const hash = window.location.hash.replace('#', '');
@@ -74,6 +76,12 @@ export default function PlanBuilderPage() {
   }, [uid]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Show the plan name (not the uid) in the header breadcrumb.
+  useEffect(() => {
+    // Key must match the encoded pathname the header splits on.
+    if (uid && plan?.name) setCrumbLabel(`/plans/${encodeURIComponent(uid)}`, plan.name);
+  }, [uid, plan?.name, setCrumbLabel]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

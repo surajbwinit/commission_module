@@ -45,7 +45,7 @@ const ROUTE_LABELS: Record<string, string> = {
 export default function Header() {
   const pathname = usePathname() ?? '/';
   const router = useRouter();
-  const { selectedPeriod, setSelectedPeriod, currentPersona, setPersona, logout } = useAppStore();
+  const { selectedPeriod, setSelectedPeriod, currentPersona, setPersona, logout, crumbLabels } = useAppStore();
   const [confirmLogout, setConfirmLogout] = useState(false);
 
   const handleLogout = () => {
@@ -69,7 +69,9 @@ export default function Header() {
     let acc = '';
     for (const p of parts) {
       acc += '/' + p;
-      out.push({ label: ROUTE_LABELS[acc] ?? decodeURIComponent(p), href: acc });
+      // Labels published by a detail page (plan name, …) win over the static
+      // route map, which in turn wins over the raw URL segment.
+      out.push({ label: crumbLabels[acc] ?? ROUTE_LABELS[acc] ?? decodeURIComponent(p), href: acc });
     }
     return out;
   })();
