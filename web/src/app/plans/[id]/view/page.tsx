@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
-  ArrowLeft, Calculator, Target, Info, Calendar, Users, Building2,
+  ArrowLeft, Calculator, Target, Info, Calendar, Users, Building2, ChevronDown,
 } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -113,6 +113,34 @@ function Stat({ icon: Icon, label, value }: { icon: React.ComponentType<{ classN
   );
 }
 
+function EmployeeStat({ employees }: { employees: { uid: string; name: string }[] }) {
+  return (
+    <details className="group relative min-w-0">
+      <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3 transition-colors hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-slate-700 dark:bg-slate-800/40 dark:hover:border-primary/40 dark:hover:bg-primary/10 [&::-webkit-details-marker]:hidden">
+        <div className="h-9 w-9 shrink-0 rounded-md bg-white text-slate-500 border border-slate-200 flex items-center justify-center dark:bg-slate-900 dark:border-slate-700 dark:text-slate-400">
+          <Users className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-slate-500">Employees</div>
+          <div className="text-sm font-medium text-slate-800 dark:text-slate-100 whitespace-nowrap tabular-nums">
+            {employees.length} attached
+          </div>
+        </div>
+        <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
+      </summary>
+
+      <div className="absolute right-0 top-full z-30 mt-2 w-full min-w-60 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+        <ul className="max-h-64 overflow-y-auto py-1" aria-label="Attached employees">
+          {employees.map((employee) => (
+            <li key={employee.uid} className="truncate px-3 py-2 text-sm font-medium text-slate-800 dark:text-slate-100" title={employee.name}>
+              {employee.name}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </details>
+  );
+}
 function SectionHeader({ icon: Icon, title, subtitle, right }: {
   icon: React.ComponentType<{ className?: string }>; title: string; subtitle: string; right?: React.ReactNode;
 }) {
@@ -339,7 +367,7 @@ export default function PlanViewPage() {
           <Stat icon={Calendar} label="Effective" value={`${formatDate(plan.effective_from)} → ${formatDate(plan.effective_to)}`} />
           <Stat icon={Target} label="KPIs" value={`${payoutKpis.length} payout · ${monitorKpis.length} monitor`} />
           {plan.employees && plan.employees.length > 0 && (
-            <Stat icon={Users} label="Employees" value={`${plan.employees.length} attached`} />
+            <EmployeeStat employees={plan.employees} />
           )}
         </div>
 
