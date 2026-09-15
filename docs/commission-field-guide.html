@@ -1,0 +1,821 @@
+<title>SADAFCO Commission Field Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F5F6F8;
+    --surface: #FFFFFF;
+    --sunken: #ECEEF2;
+    --line: #D9DDE4;
+    --line-strong: #B9C0CB;
+    --ink: #1B2230;
+    --ink-2: #4A5362;
+    --ink-3: #7A8393;
+    --accent: #0F766E;
+    --accent-ink: #0B5C56;
+    --accent-soft: #E1F2EF;
+    --warn: #B45309;
+    --warn-soft: #FBEEDC;
+    --danger: #B42318;
+    --danger-soft: #FBE4E1;
+    --info-soft: #E6EEF8;
+    --code-bg: #1E2530;
+    --code-ink: #E3E8EF;
+    --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #12161C;
+      --surface: #1A2029;
+      --sunken: #222A35;
+      --line: #2E3745;
+      --line-strong: #435063;
+      --ink: #E6EAF0;
+      --ink-2: #B4BCC8;
+      --ink-3: #7E8898;
+      --accent: #3FBFAF;
+      --accent-ink: #7EDCD0;
+      --accent-soft: #163632;
+      --warn: #F0A33A;
+      --warn-soft: #3A2A12;
+      --danger: #F0776C;
+      --danger-soft: #3D1F1B;
+      --info-soft: #1E2A3A;
+      --code-bg: #0E1218;
+      --code-ink: #DCE2EA;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #12161C;
+    --surface: #1A2029;
+    --sunken: #222A35;
+    --line: #2E3745;
+    --line-strong: #435063;
+    --ink: #E6EAF0;
+    --ink-2: #B4BCC8;
+    --ink-3: #7E8898;
+    --accent: #3FBFAF;
+    --accent-ink: #7EDCD0;
+    --accent-soft: #163632;
+    --warn: #F0A33A;
+    --warn-soft: #3A2A12;
+    --danger: #F0776C;
+    --danger-soft: #3D1F1B;
+    --info-soft: #1E2A3A;
+    --code-bg: #0E1218;
+    --code-ink: #DCE2EA;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 0 80px;
+  }
+
+  /* Masthead */
+  .mast {
+    padding-block: 44px 28px;
+    border-bottom: 1px solid var(--line-strong);
+    margin-bottom: 32px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin-bottom: 10px;
+  }
+  .mast h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(30px, 4vw, 44px);
+    line-height: 1.1;
+    margin: 0 0 14px;
+    text-wrap: balance;
+    letter-spacing: -.01em;
+  }
+  .mast p.lede {
+    font-size: 17px;
+    color: var(--ink-2);
+    max-width: 68ch;
+    margin: 0 0 20px;
+  }
+  .facts {
+    display: flex; flex-wrap: wrap; gap: 8px 22px;
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-3);
+  }
+  .facts b { color: var(--ink); font-weight: 500; }
+
+  /* Layout */
+  .cols {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 48px;
+    align-items: start;
+  }
+  nav.toc {
+    position: sticky; top: 20px;
+    font-size: 13.5px;
+  }
+  nav.toc .toc-title {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px;
+  }
+  nav.toc ol { list-style: none; padding: 0; margin: 0; border-left: 1px solid var(--line); }
+  nav.toc li a {
+    display: block; padding: 5px 0 5px 14px; color: var(--ink-2); text-decoration: none;
+    border-left: 2px solid transparent; margin-left: -1px;
+  }
+  nav.toc li a:hover { color: var(--ink); }
+  nav.toc li a.active { color: var(--accent-ink); border-left-color: var(--accent); }
+  nav.toc li.group { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 14px 0 4px 14px; }
+  nav.toc li.group:first-child { padding-top: 0; }
+
+  main { min-width: 0; }
+  main > section { margin-bottom: 56px; scroll-margin-top: 20px; }
+  h2 {
+    font-family: var(--serif); font-weight: 600; font-size: 28px; line-height: 1.2;
+    margin: 0 0 6px; text-wrap: balance; letter-spacing: -.005em;
+  }
+  .h2-sub { color: var(--ink-3); font-size: 14px; margin: 0 0 20px; }
+  h3 {
+    font-family: var(--sans); font-weight: 600; font-size: 16px; margin: 28px 0 8px;
+  }
+  h3 .num {
+    display: inline-block; min-width: 26px; height: 26px; line-height: 26px; text-align: center;
+    border-radius: 999px; background: var(--accent); color: #fff; font-family: var(--mono);
+    font-size: 12px; font-weight: 500; margin-right: 8px; vertical-align: 1px;
+  }
+  p, ul, ol { max-width: 72ch; }
+  p { margin: 0 0 12px; }
+  ul, ol { padding-left: 22px; margin: 0 0 12px; }
+  li { margin-bottom: 5px; }
+  li::marker { color: var(--ink-3); }
+  code {
+    font-family: var(--mono); font-size: .88em;
+    background: var(--sunken); padding: 1px 5px; border-radius: 3px;
+    color: var(--ink);
+  }
+  pre {
+    background: var(--code-bg); color: var(--code-ink);
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.55;
+    padding: 14px 16px; border-radius: 6px; overflow-x: auto; margin: 0 0 16px;
+  }
+  pre code { background: none; padding: 0; color: inherit; font-size: inherit; }
+  .k { color: #8FD3C7; }        /* code highlight: keys */
+  .c { color: #8A96A8; }        /* code highlight: comment */
+
+  /* Tables */
+  .tbl { overflow-x: auto; margin: 0 0 18px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; background: var(--sunken); }
+  tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12.5px; }
+  td.mono { font-family: var(--mono); font-size: 12.5px; }
+  td .ok { color: var(--accent-ink); font-weight: 600; }
+
+  /* Callouts */
+  .note {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 0 0 16px; max-width: 76ch;
+  }
+  .note.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .note.danger { border-left-color: var(--danger); background: var(--danger-soft); }
+  .note .t { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 4px; color: var(--ink-2); }
+  .note p:last-child { margin-bottom: 0; }
+
+  /* Flow rail */
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin: 12px 0 20px;
+  }
+  .flow .box {
+    background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px;
+    padding: 10px 12px; min-width: 150px; flex: 1 1 150px; max-width: 220px;
+  }
+  .flow .box .lab { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .flow .box .val { font-weight: 600; font-size: 14px; margin-top: 2px; }
+  .flow .box .sub { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; }
+  .flow .box.money { border-color: var(--accent); background: var(--accent-soft); }
+  .flow .box.hold { border-color: var(--warn); background: var(--warn-soft); }
+  .flow .arrow { align-self: center; color: var(--ink-3); font-size: 18px; padding: 0 2px; }
+
+  /* Screen cards */
+  .screens { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin: 0 0 20px; }
+  .screen { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+  .screen .route { font-family: var(--mono); font-size: 12px; color: var(--accent-ink); }
+  .screen .name { font-weight: 600; font-size: 15px; margin: 2px 0 6px; }
+  .screen p { font-size: 13.5px; color: var(--ink-2); margin: 0 0 8px; }
+  .screen .rw { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); }
+  .screen .rw b { color: var(--ink-2); font-weight: 500; }
+
+  /* Pills */
+  .pill { display: inline-block; font-family: var(--mono); font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink-2); white-space: nowrap; }
+  .pill.pay { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+  .pill.mon { border-color: var(--warn); color: var(--warn); background: var(--warn-soft); }
+  .pill.off { border-color: var(--line); color: var(--ink-3); background: var(--sunken); }
+
+  /* Sandbox */
+  .sandbox { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; padding: 18px 20px; margin: 0 0 20px; }
+  .sandbox h4 { margin: 0 0 4px; font-family: var(--serif); font-size: 20px; font-weight: 600; }
+  .sandbox .hint { font-size: 13px; color: var(--ink-3); margin: 0 0 14px; }
+  .sb-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .field label { display: block; font-family: var(--mono); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 4px; }
+  .field input, .field select {
+    width: 100%; font-family: var(--mono); font-size: 14px; padding: 7px 9px;
+    border: 1px solid var(--line-strong); border-radius: 4px; background: var(--ground); color: var(--ink);
+  }
+  .tiers { overflow-x: auto; margin-bottom: 14px; }
+  .tiers table { font-size: 13px; }
+  .tiers input { width: 84px; font-family: var(--mono); font-size: 13px; padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--ground); color: var(--ink); }
+  .tiers select { font-family: var(--mono); font-size: 12.5px; padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--ground); color: var(--ink); }
+  .ledger { display: grid; grid-template-columns: 1fr auto; gap: 4px 20px; font-family: var(--mono); font-size: 13.5px; max-width: 520px; margin-top: 6px; }
+  .ledger .r { color: var(--ink-2); }
+  .ledger .v { text-align: right; font-variant-numeric: tabular-nums; }
+  .ledger .total { border-top: 1px solid var(--line-strong); padding-top: 6px; margin-top: 4px; font-weight: 600; color: var(--accent-ink); }
+  .ledger .total.v { color: var(--accent-ink); }
+  .ledger .neg { color: var(--danger); }
+  .explain { font-size: 13px; color: var(--ink-2); margin-top: 10px; max-width: 72ch; }
+
+  /* Checklist */
+  .check { list-style: none; padding: 0; }
+  .check li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px solid var(--line); margin: 0; }
+  .check li:last-child { border-bottom: 0; }
+  .check input { margin: 5px 0 0; accent-color: var(--accent); }
+  .check .what { font-weight: 500; }
+  .check .how { font-size: 13px; color: var(--ink-2); }
+
+  /* Definition rows */
+  .defs { display: grid; grid-template-columns: 160px 1fr; gap: 6px 16px; font-size: 14px; max-width: 78ch; margin-bottom: 14px; }
+  .defs dt { font-family: var(--mono); font-size: 12.5px; color: var(--accent-ink); padding-top: 2px; }
+  .defs dd { margin: 0; color: var(--ink-2); }
+
+  @media (max-width: 860px) {
+    .cols { grid-template-columns: 1fr; gap: 24px; }
+    nav.toc { position: static; }
+    nav.toc ol { display: flex; flex-wrap: wrap; gap: 2px 10px; border-left: 0; }
+    nav.toc li.group { width: 100%; padding: 8px 0 2px; }
+    nav.toc li a { border-left: 0; padding: 3px 0; }
+    .defs { grid-template-columns: 1fr; gap: 2px 0; }
+    .defs dd { margin-bottom: 8px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html { scroll-behavior: smooth; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div class="eyebrow">Commission v2 &middot; .NET 8 API + Next.js &middot; PostgreSQL commissionv1 schema</div>
+    <h1>SADAFCO Commission Field Guide</h1>
+    <p class="lede">How a salesman's month of invoices turns into a SAR payout: which screens hold what, how employees are matched to plans, how KPI formulas, slabs and deduction bands combine, and how to build a plan of your own and prove its numbers by hand.</p>
+    <div class="facts">
+      <span>API <b>localhost:5000</b></span>
+      <span>Web <b>localhost:3000</b></span>
+      <span>Loaded data <b>2026-05</b></span>
+      <span>Currency <b>SAR</b></span>
+      <span>Plans <b>14 active</b></span>
+      <span>Employees <b>97</b></span>
+      <span>KPIs <b>13</b></span>
+    </div>
+  </header>
+
+  <div class="cols">
+    <nav class="toc" aria-label="Contents">
+      <div class="toc-title">Contents</div>
+      <ol>
+        <li class="group">Understand</li>
+        <li><a href="#picture">The big picture</a></li>
+        <li><a href="#screens">The nine screens</a></li>
+        <li><a href="#people">Employees and scope</a></li>
+        <li><a href="#transactions">Transactions</a></li>
+        <li><a href="#kpis">KPI Library</a></li>
+        <li><a href="#plans">Plan anatomy</a></li>
+        <li><a href="#engine">The calculation</a></li>
+        <li><a href="#runs">Calculate, Simulate, Cron</a></li>
+        <li><a href="#approvals">Approvals and History</a></li>
+        <li class="group">Do</li>
+        <li><a href="#sandbox">Payout sandbox</a></li>
+        <li><a href="#create">Create a plan</a></li>
+        <li><a href="#verify">Verify a payout</a></li>
+        <li><a href="#issues">Known data issues</a></li>
+        <li><a href="#reference">API reference</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <!-- ============================================================ -->
+      <section id="picture">
+        <h2>The big picture</h2>
+        <p class="h2-sub">One employee, one plan, one month. Everything else is detail.</p>
+        <p>A commission is never attached to an employee directly. It falls out of four things meeting: an <strong>employee</strong> whose role is inside a <strong>plan's scope</strong>, the employee's <strong>transactions</strong> for one period, and the plan's <strong>KPIs</strong> with their pay-rate slabs. The engine walks that chain for every employee in scope and writes one payout row per person.</p>
+
+        <div class="flow" aria-label="Payout flow">
+          <div class="box"><div class="lab">Who</div><div class="val">Employee</div><div class="sub">role, reports_to, office</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box"><div class="lab">Matched by</div><div class="val">Plan scope</div><div class="sub">plan_roles, optional whitelist</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box"><div class="lab">Raw material</div><div class="val">Transactions</div><div class="sub">period = 2026-05, self + reports</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box"><div class="lab">Measured by</div><div class="val">KPI formula</div><div class="sub">e.g. (sale − return) / target × 100</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box"><div class="lab">Priced by</div><div class="val">Slab tier</div><div class="sub">96.68% → tier 2, 350 / point</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box money"><div class="lab">× weight</div><div class="val">Gross payout</div><div class="sub">sum of weighted KPIs</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box hold"><div class="lab">Reduced by</div><div class="val">Deduction bands</div><div class="sub">monitor KPIs at weight 0</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box money"><div class="lab">Stored as</div><div class="val">Net payout</div><div class="sub">employee_payouts row</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box"><div class="lab">Then</div><div class="val">Approval</div><div class="sub">pending → submitted → manager → finance → HR</div></div>
+        </div>
+
+        <p>Two ideas carry most of the weight. First, a KPI in a plan is either a <span class="pill pay">payout KPI</span> with a weight above zero and a slab, or a <span class="pill mon">monitor KPI</span> with weight exactly zero and deduction bands. Payout KPIs add money; monitor KPIs can only take a percentage away. Second, the formula output is compared to the slab directly. The engine does not divide by target any more, so a ratio KPI must already produce a percentage.</p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="screens">
+        <h2>The nine screens</h2>
+        <p class="h2-sub">What each page reads, what it writes, and when you go there.</p>
+        <div class="screens">
+          <div class="screen"><div class="route">/dashboard</div><div class="name">Home</div><p>Totals for the selected period: active plans, people, KPIs, total payout, earners versus population, average and median. A persona picker switches to one salesman's view.</p><div class="rw"><b>reads</b> calculation_runs, employee_payouts</div></div>
+          <div class="screen"><div class="route">/plans</div><div class="name">Plans</div><p>List of every plan with status, dates, KPI count and roles. New Plan creates the header row and opens the builder.</p><div class="rw"><b>writes</b> commission_plans</div></div>
+          <div class="screen"><div class="route">/plans/&lt;uid&gt;</div><div class="name">Plan builder</div><p>Four tabs: Plan, KPI's &amp; Weights, Deductions, Rules. Each save replaces that section wholesale.</p><div class="rw"><b>writes</b> plan_roles, plan_employees, plan_kpis, slab_sets, slab_tiers, kpi_deduction_rules, rule_sets, rules</div></div>
+          <div class="screen"><div class="route">/kpis</div><div class="name">KPI Library</div><p>Reusable metric definitions shared by every plan. Each holds a formula in JSON, a unit and a direction. Templates fill common ones in a click.</p><div class="rw"><b>writes</b> kpi_definitions</div></div>
+          <div class="screen"><div class="route">/employees</div><div class="name">People</div><p>Read-only list grouped by role. Shows who reports to whom. Employees arrive from the master data import, not from this screen.</p><div class="rw"><b>reads</b> employees</div></div>
+          <div class="screen"><div class="route">/transactions</div><div class="name">Transactions</div><p>Every row for the selected period, tabbed by type. The Upload sub-page accepts a CSV of sales, returns and collections.</p><div class="rw"><b>writes</b> transactions (via upload)</div></div>
+          <div class="screen"><div class="route">/calculate</div><div class="name">Run payout</div><p>Pick an active plan, press Run. Replaces any pending draft for that plan and month, stores real payouts, and auto-submits if the month has ended. A checkbox turns it into a simulation.</p><div class="rw"><b>writes</b> calculation_runs, employee_payouts, kpi_results, approval_log</div></div>
+          <div class="screen"><div class="route">/simulate</div><div class="name">Simulate</div><p>Runs the same plan twice, once as-is and once with slider overrides for base payout and strategic SKU share, then charts the difference per employee. Never touches real drafts.</p><div class="rw"><b>writes</b> calculation_runs (is_simulation = true)</div></div>
+          <div class="screen"><div class="route">/approvals</div><div class="name">Approvals</div><p>Payouts by stage. Approve advances one stage, Reject stops it. Bulk advance works on the ticked rows.</p><div class="rw"><b>writes</b> employee_payouts.approval_status, approval_log</div></div>
+          <div class="screen"><div class="route">/audit</div><div class="name">History</div><p>The audit trail: plan created or updated, run refreshed or submitted, batch promotions. Filter by entity type.</p><div class="rw"><b>reads</b> audit_trail</div></div>
+        </div>
+        <div class="note"><div class="t">Period selector</div><p>The month dropdown in the header drives Home, Run payout, Simulate and Transactions. It defaults to 2026-05 because that is the month loaded. Change it before running anything for another month.</p></div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="people">
+        <h2>Employees and scope</h2>
+        <p class="h2-sub">How a person becomes eligible for a plan, and whose transactions count as theirs.</p>
+        <p>An employee row carries four fields the engine cares about: <code>role_uid</code>, <code>sales_office_uid</code>, <code>reports_to_uid</code> and <code>is_active</code>. The plan side carries three lists. The engine intersects them in this order.</p>
+        <ol>
+          <li><strong>Role gate.</strong> Every active employee whose role is in <code>plan_roles</code>. If the plan has no roles, nobody qualifies. This is why the two ASM plans currently produce zero employees.</li>
+          <li><strong>Office gate.</strong> If <code>plan_sales_offices</code> is non-empty, keep only employees in one of those offices. The builder does not expose this list, so it is empty on every current plan.</li>
+          <li><strong>Whitelist.</strong> If <code>plan_employees</code> is non-empty, keep only those people. Empty means no restriction. The AMB TT Salesman plan lists 22 people out of the 76 who hold the Pre&amp;Vansales role.</li>
+        </ol>
+        <p>Once a person is in scope, <strong>their transactions</strong> are their own rows plus every row belonging to anyone below them in the <code>reports_to</code> tree, walked to any depth. A salesman with no reports sees only himself. A supervisor's SALES_ACH therefore sums the whole team's sales against the whole team's targets. Sales office is no longer used to widen scope.</p>
+        <div class="tbl"><table>
+          <tr><th>Role</th><th class="num">People</th><th>Plans that target it</th></tr>
+          <tr><td>Pre&amp;Vansales Portal Role</td><td class="num">76</td><td>the 9 Salesman and Presalesman plans</td></tr>
+          <tr><td>Sales Supervisor Role</td><td class="num">15</td><td>AMB, FRZ and OOH Supervisor</td></tr>
+          <tr><td>ASM</td><td class="num">5</td><td>none yet, both ASM plans have no roles</td></tr>
+          <tr><td>Business Manager</td><td class="num">1</td><td>none</td></tr>
+        </table></div>
+        <div class="note warn"><div class="t">Watch for</div><p>One person can be in scope of several plans. Each plan writes its own payout row, so a supervisor who is also whitelisted on a salesman plan is paid twice. Check whitelists for overlap.</p></div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="transactions">
+        <h2>Transactions</h2>
+        <p class="h2-sub">The only input the formulas read. Everything is a row with a type, an amount and a period.</p>
+        <p>The engine filters on <code>emp_uid</code> and <code>period</code>, where period is the string <code>YYYY-MM</code>. Amount is in the row's currency and converted to the plan currency through <code>exchange_rate</code> when rates exist, otherwise taken at face value. Product and customer rows are joined so formulas can filter by brand, category, channel, group, strategic flag or tag.</p>
+        <div class="tbl"><table>
+          <tr><th>transaction_type</th><th class="num">Rows in 2026-05</th><th class="num">Amount (SAR)</th><th>Used by</th></tr>
+          <tr><td class="mono">sale</td><td class="num">231,347</td><td class="num">30,542,550.31</td><td>SALES_ACH, PRODUCTIVITY, SERVICE_LEVEL, NEW_CUSTOMER, denominators of OVERDUE and RETURNS</td></tr>
+          <tr><td class="mono">return</td><td class="num">714</td><td class="num">419,044.83</td><td>SALES_ACH net, RETURNS, BAD_RETURN denominator</td></tr>
+          <tr><td class="mono">bad_return</td><td class="num">9,420</td><td class="num">166,871.17</td><td>BAD_RETURN numerator</td></tr>
+          <tr><td class="mono">collection</td><td class="num">19,630</td><td class="num">21,011,354.09</td><td>COLLECTION_PERCENT, eligibility min_collection_percent</td></tr>
+          <tr><td class="mono">target</td><td class="num">74</td><td class="num">29,063,196.02</td><td>SALES_ACH denominator, one row per employee</td></tr>
+          <tr><td class="mono">scheduled_visit</td><td class="num">23,252</td><td class="num">0</td><td>SERVICE_LEVEL and JP_ADHERENCE denominators</td></tr>
+          <tr><td class="mono">visit</td><td class="num">23,541</td><td class="num">0</td><td>PRODUCTIVITY denominator, JP_ADHERENCE numerator</td></tr>
+          <tr><td class="mono">visit_outside_schedule</td><td class="num">2,274</td><td class="num">0</td><td>same as visit</td></tr>
+          <tr><td class="mono">overdue, ir_audit</td><td class="num">0</td><td class="num">0</td><td>OVERDUE and DISTRIBUTION, both always evaluate to 0 this month</td></tr>
+        </table></div>
+        <p><strong>Uploading a CSV</strong> on the Transactions page needs a header row with these eight columns, plus an optional <code>territory_id</code>. Rows are inserted in batches of 500 with <code>source_system = 'import'</code>.</p>
+<pre><code>employee_id,customer_id,product_id,transaction_type,quantity,amount,transaction_date,period,territory_id
+5897,CUST-100,SKU-9001,sale,5,1250.00,2026-05-12,2026-05,1
+5897,CUST-100,SKU-9001,return,1,250.00,2026-05-13,2026-05,1</code></pre>
+        <p>The employee, customer and product ids must already exist in master data. The upload does not validate them, so a typo produces rows no formula will ever see.</p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="kpis">
+        <h2>KPI Library</h2>
+        <p class="h2-sub">A KPI is a named formula. Plans borrow it and add a weight, a target and a slab.</p>
+        <p>Each definition has a <code>code</code>, a <code>category</code>, a <code>unit</code>, a <code>direction</code> and a <code>formula</code> in JSON. The formula is what the engine runs. Unit and direction are labels for the UI. There are five formula types.</p>
+        <dl class="defs">
+          <dt>simple</dt><dd>One aggregation over filtered rows: SUM, COUNT, COUNT_DISTINCT or AVG of amount, quantity, customer_uid or product_uid.</dd>
+          <dt>ratio</dt><dd>numerator ÷ denominator × multiplyBy. With multiplyBy 100 the output is a percentage. Denominator 0 gives 0.</dd>
+          <dt>growth</dt><dd>Current period metric versus the same month last year, or previous month with compareWith. Output is a percent change. The prior period is queried from the database, not from the in-memory rows.</dd>
+          <dt>team</dt><dd>SUM, AVG or COUNT of a metric across direct reports only. Queried per report from the database.</dd>
+          <dt>static</dt><dd>Returns defaultValue. ZERO_SALES uses this and always reads 0 until an external feed sets it.</dd>
+        </dl>
+        <p>Here is the SALES_ACH formula exactly as stored. It is the one payout KPI on every salesman plan.</p>
+<pre><code>{
+  <span class="k">"type"</span>: "ratio",
+  <span class="k">"numerator"</span>:   { "aggregation": "SUM", "field": "amount", "transactionTypes": ["sale", "return"] },
+  <span class="k">"denominator"</span>: { "aggregation": "SUM", "field": "amount", "transactionType": "target" },
+  <span class="k">"multiplyBy"</span>: 100
+}
+<span class="c">// numerator with both sale and return in the array = SUM(sale) − SUM(return)</span></code></pre>
+
+        <h3>Four behaviours to know before you check numbers by hand</h3>
+        <ul>
+          <li><strong>Net sales rule.</strong> When <code>transactionTypes</code> contains both <code>sale</code> and <code>return</code> the engine subtracts returns. The array form does <em>not</em> pull in <code>bad_return</code>.</li>
+          <li><strong>Return superset.</strong> A single <code>transactionType: "return"</code> matches both <code>return</code> and <code>bad_return</code>. That is why the BAD_RETURN denominator equals return + bad_return.</li>
+          <li><strong>Per-day KPIs.</strong> SERVICE_LEVEL, JP_ADHERENCE, JP_COVERAGE and PRODUCTIVITY are evaluated one day at a time and the daily numerators and denominators are summed before dividing. A customer visited on four days counts four times. Do not expect these to match a month-wide COUNT DISTINCT.</li>
+          <li><strong>Target is informational.</strong> The plan's target_value is stored on the result but the number the slab sees is the raw formula output. A ratio KPI must therefore already be a percentage of target, which is why SALES_ACH divides by the <code>target</code> transaction rather than the plan target.</li>
+        </ul>
+        <div class="tbl"><table>
+          <tr><th>Code</th><th>Category</th><th>Direction</th><th>Reads</th></tr>
+          <tr><td class="mono">SALES_ACH</td><td>Sales</td><td>higher</td><td>(sale − return) ÷ target × 100</td></tr>
+          <tr><td class="mono">PRODUCTIVITY</td><td>Performance</td><td>higher</td><td>distinct customers invoiced ÷ distinct customers visited, per day, × 100</td></tr>
+          <tr><td class="mono">SERVICE_LEVEL</td><td>Service</td><td>higher</td><td>distinct customers invoiced ÷ distinct scheduled, per day, × 100</td></tr>
+          <tr><td class="mono">JP_ADHERENCE</td><td>Performance</td><td>higher</td><td>count of visits ÷ count of scheduled visits, per day, × 100</td></tr>
+          <tr><td class="mono">BAD_RETURN</td><td>Quality</td><td>lower</td><td>bad_return ÷ (return + bad_return) × 100</td></tr>
+          <tr><td class="mono">RETURNS</td><td>Quality</td><td>lower</td><td>(return + bad_return) ÷ sale × 100</td></tr>
+          <tr><td class="mono">OVERDUE</td><td>Collections</td><td>lower</td><td>overdue ÷ sale × 100, no overdue rows loaded</td></tr>
+          <tr><td class="mono">DISTRIBUTION</td><td>Distribution</td><td>higher</td><td>distinct products sold ÷ count of ir_audit × 100, no ir_audit rows loaded</td></tr>
+          <tr><td class="mono">COLLECTION_PERCENT</td><td>Financial</td><td>higher</td><td>collection ÷ sale × 100</td></tr>
+          <tr><td class="mono">NEW_CUSTOMER</td><td>Growth</td><td>higher</td><td>distinct customers with a sale, a plain count not a percent</td></tr>
+          <tr><td class="mono">ZERO_SALES</td><td>Quality</td><td>lower</td><td>static 0</td></tr>
+        </table></div>
+        <p>Creating a KPI validates only that the JSON parses and the type is one of the five. It does not check that the transaction types exist in the data, so a formula can be valid and still return 0 forever. Deleting a KPI only sets <code>is_active = false</code>; plans that reference it keep working.</p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="plans">
+        <h2>Plan anatomy</h2>
+        <p class="h2-sub">Fifteen tables hang off one plan row. The builder shows about half of them.</p>
+        <p>The header row holds name, status, plan_type, effective dates, base_payout and currency_uid. Currency is mandatory. Status must be <code>active</code> for the plan to appear on Run payout and Simulate, and for the nightly cron to pick it up. Base payout is the amount a <code>percentage</code> slab rate is applied to. Every current plan has it at 0 because they all use <code>per_achievement_point</code> rates.</p>
+        <div class="tbl"><table>
+          <tr><th>Builder tab</th><th>Section</th><th>Table</th><th>Engine effect</th></tr>
+          <tr><td>Plan</td><td>Basics</td><td class="mono">commission_plans</td><td>status gate, base_payout, currency</td></tr>
+          <tr><td>Plan</td><td>Scope: roles</td><td class="mono">plan_roles</td><td>who qualifies, empty = nobody</td></tr>
+          <tr><td>Plan</td><td>Scope: people</td><td class="mono">plan_employees</td><td>optional whitelist, empty = no restriction</td></tr>
+          <tr><td>KPI's &amp; Weights</td><td>Payout KPIs</td><td class="mono">plan_kpis</td><td>weight &gt; 0, target, link to a slab set. Weights should total 100.</td></tr>
+          <tr><td>KPI's &amp; Weights</td><td>Slab ladder</td><td class="mono">slab_sets, slab_tiers</td><td>maps achievement % to a rate. Types: step, progressive, accelerator.</td></tr>
+          <tr><td>Deductions</td><td>Monitor KPIs</td><td class="mono">plan_kpis</td><td>weight = 0, pays nothing</td></tr>
+          <tr><td>Deductions</td><td>Bands</td><td class="mono">kpi_deduction_rules</td><td>a range on actual_value, achievement_percent or shortfall_percent and a % cut from gross</td></tr>
+          <tr><td>Rules</td><td>Include / exclude</td><td class="mono">rule_sets, rules</td><td>filters transactions before any formula runs. Exclude wins.</td></tr>
+          <tr><td><span class="pill off">API only</span></td><td>Eligibility</td><td class="mono">eligibility_rules</td><td>min sales, collection %, return %, lines sold; zero or reduce the net</td></tr>
+          <tr><td><span class="pill off">API only</span></td><td>Multipliers</td><td class="mono">multiplier_rules</td><td>bonus factor on revenue growth, strategic or new-launch share</td></tr>
+          <tr><td><span class="pill off">API only</span></td><td>Penalties</td><td class="mono">penalty_rules</td><td>subtract a % or fixed amount when return_percent crosses a threshold</td></tr>
+          <tr><td><span class="pill off">API only</span></td><td>Caps</td><td class="mono">capping_rules</td><td>max per plan, or percent of base_salary</td></tr>
+          <tr><td><span class="pill off">API only</span></td><td>Splits</td><td class="mono">split_rules, split_participants</td><td>keep only a % of net for a given role</td></tr>
+          <tr><td><span class="pill off">API only</span></td><td>Monthly targets</td><td class="mono">plan_kpi_monthly_targets</td><td>per-period target override, stored on the result</td></tr>
+          <tr><td><span class="pill off">API only</span></td><td>Fixed incentives</td><td class="mono">plan_fixed_incentives</td><td>flat amount when a KPI condition passes</td></tr>
+        </table></div>
+
+        <h3>Slab tiers, and how a rate becomes money</h3>
+        <p>A slab set belongs to one KPI, optionally to one role. The engine picks the set named on the plan KPI, else the set matching the employee's role, else the set with no role. With no set at all it uses a linear fallback of 5 percent of base payout at full achievement, which is 0 on every current plan.</p>
+        <div class="tbl"><table>
+          <tr><th>rate_type</th><th>Raw payout formula</th><th>Needs base_payout?</th></tr>
+          <tr><td class="mono">per_achievement_point</td><td>(achievement − tier min) × rate</td><td>No</td></tr>
+          <tr><td class="mono">percentage</td><td>base_payout × rate ÷ 100</td><td>Yes</td></tr>
+          <tr><td class="mono">fixed</td><td>rate</td><td>No</td></tr>
+          <tr><td class="mono">per_unit</td><td>actual value × rate</td><td>No</td></tr>
+        </table></div>
+        <p>Then <code>weighted = raw × weight ÷ 100</code>, and gross is the sum of weighted across payout KPIs. Tier boundaries honour the min and max inclusive flags, so a tier written as min 95 exclusive, max 105 inclusive catches 96.68 and 105.00 but not 95.00. An achievement below the first tier gets rate 0.</p>
+
+        <h3>Deduction bands</h3>
+        <p>For each monitor KPI the engine tests every active band whose role matches. Among the bands the value falls in, the one with the largest deduction wins for that KPI. The winning percentages are added across KPIs, capped at 100, and that share of gross is removed. Bands compare against the raw formula output, so for a ratio KPI they must be written in percent.</p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="engine">
+        <h2>The calculation</h2>
+        <p class="h2-sub">The exact order the engine executes, per employee. The UI animates twelve steps; the code runs these.</p>
+        <div class="tbl"><table>
+          <tr><th>#</th><th>Step</th><th>What happens</th><th>Where</th></tr>
+          <tr><td class="num">1</td><td>Load plan</td><td>Refuses to run without a currency.</td><td class="mono">CalculationPipeline.cs:36</td></tr>
+          <tr><td class="num">2</td><td>Lock</td><td>One run per plan and period at a time. Stale locks older than 30 minutes are swept.</td><td class="mono">:72</td></tr>
+          <tr><td class="num">3</td><td>Replace draft</td><td>Deletes prior payouts still in <code>pending</code> for this plan and period. Submitted or approved rows are untouched.</td><td class="mono">:101</td></tr>
+          <tr><td class="num">4</td><td>Employees</td><td>Role gate, office gate, whitelist. Empty result ends the run with total 0.</td><td class="mono">:126</td></tr>
+          <tr><td class="num">5</td><td>Load config</td><td>KPIs, slabs, rules, bands, eligibility, multipliers, penalties, caps, splits, this period's monthly targets and fixed incentives.</td><td class="mono">:185</td></tr>
+          <tr><td class="num">6</td><td>Fetch transactions</td><td>Self plus reports_to descendants, filtered by period, joined to product and customer.</td><td class="mono">Steps.cs:17</td></tr>
+          <tr><td class="num">7</td><td>Mapping filters</td><td>Exclude rules drop rows; include rules, if any exist, keep only matches.</td><td class="mono">MappingFilters.cs:16</td></tr>
+          <tr><td class="num">8</td><td>Eligibility</td><td>Compares min_sales, min_collection_percent, max_return_percent, min_lines_sold. Status becomes eligible, reduced or ineligible.</td><td class="mono">EligibilityEngine.cs:6</td></tr>
+          <tr><td class="num">9</td><td>KPI achievement</td><td>Formula runs on the filtered rows. Result and its numerator and denominator are kept.</td><td class="mono">Steps.cs:147</td></tr>
+          <tr><td class="num">10</td><td>Slab</td><td>Tier lookup gives rate, rate type and points above tier minimum.</td><td class="mono">Steps.cs:316</td></tr>
+          <tr><td class="num">11</td><td>Raw × weight</td><td>Per the rate_type table above, then × weight ÷ 100.</td><td class="mono">Steps.cs:422</td></tr>
+          <tr><td class="num">12</td><td>Gross</td><td>Sum of weighted payouts, plus helper trip bonus if trip rates exist.</td><td class="mono">CalculationPipeline.cs:398</td></tr>
+          <tr><td class="num">13</td><td>Deductions</td><td>Band percentages summed, capped at 100, applied to gross.</td><td class="mono">Steps.cs:469</td></tr>
+          <tr><td class="num">14</td><td>Multipliers</td><td>Applied to gross after deduction. Modes: multiplicative, additive, highest_only.</td><td class="mono">Steps.cs:542</td></tr>
+          <tr><td class="num">15</td><td>Penalties</td><td>Only return_percent is available as a trigger metric.</td><td class="mono">Steps.cs:626</td></tr>
+          <tr><td class="num">16</td><td>Fixed incentives</td><td>Flat amounts whose KPI condition passes.</td><td class="mono">CalculationPipeline.cs:487</td></tr>
+          <tr><td class="num">17</td><td>Net, eligibility</td><td>net = gross − deduction + multiplier − penalty + fixed. Then × 0 if ineligible, or × (1 − reduction %) if reduced.</td><td class="mono">:520</td></tr>
+          <tr><td class="num">18</td><td>Cap, split</td><td>Most restrictive cap wins, then the role's split share.</td><td class="mono">:525</td></tr>
+          <tr><td class="num">19</td><td>Store</td><td>One employee_payouts row, one kpi_results row per KPI, each with numerator, denominator, units and the slab decision as JSON.</td><td class="mono">Steps.cs:720</td></tr>
+          <tr><td class="num">20</td><td>Auto-submit</td><td>Only when today ≥ last day of the run's period. Otherwise the payout stays pending.</td><td class="mono">CalculationPipeline.cs:568</td></tr>
+          <tr><td class="num">21</td><td>Finalize</td><td>Run total, employee count and the full step log are written to calculation_runs. An audit_trail row records refreshed or submitted.</td><td class="mono">:588</td></tr>
+        </table></div>
+        <p>The step log is worth knowing about. Every run stores a JSON array with one entry per step per employee per KPI, with the numbers at that moment. For a 22-person plan that is around 680 entries. Fetch it with <code>GET /api/calculation/runs/&lt;uid&gt;</code> and read <code>calculation_details.steps</code> when a payout looks wrong.</p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="runs">
+        <h2>Calculate, Simulate, Cron</h2>
+        <p class="h2-sub">Three doors into the same engine. They differ only in what they overwrite and what they submit.</p>
+        <div class="tbl"><table>
+          <tr><th></th><th>Run payout</th><th>Run payout, simulation ticked</th><th>Simulate page</th><th>Nightly cron</th></tr>
+          <tr><td>Endpoint</td><td class="mono">POST /calculation/run</td><td class="mono">POST /simulation/run</td><td class="mono">POST /simulation/run × 2</td><td class="mono">internal, 02:00 UTC</td></tr>
+          <tr><td>Deletes pending draft first</td><td>Yes</td><td>No</td><td>No</td><td>Yes</td></tr>
+          <tr><td>Rows written</td><td>real, is_simulation false</td><td>is_simulation true</td><td>is_simulation true</td><td>real</td></tr>
+          <tr><td>Shows in Recent runs and Home</td><td>Yes</td><td>No</td><td>No</td><td>Yes</td></tr>
+          <tr><td>Auto-submits to approval</td><td>if period has ended</td><td>Never</td><td>Never</td><td>on last day of month</td></tr>
+          <tr><td>Overrides</td><td>none from UI</td><td>none</td><td>base_payout, strategic_sku_percent</td><td>none</td></tr>
+          <tr><td>Which plans</td><td>the one you pick</td><td>the one you pick</td><td>the one you pick</td><td>every active monthly plan, current month</td></tr>
+        </table></div>
+        <p>The Simulate page's <code>target_multiplier</code> slider is sent but the engine has no handler for it, so only the base payout and strategic SKU sliders change anything. Since all plans use per-point rates, base payout changes nothing either on today's plans. Use Simulate to test multiplier rules if you add them.</p>
+        <p>Trigger the cron pass by hand with <code>POST /api/cron/run-now</code> and read <code>GET /api/cron/status</code> to see which plans it will touch and what drafts exist.</p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="approvals">
+        <h2>Approvals and History</h2>
+        <p class="h2-sub">A payout's life after the engine.</p>
+        <div class="flow">
+          <div class="box hold"><div class="lab">Engine writes</div><div class="val">pending</div><div class="sub">draft, replaced on every re-run</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box"><div class="lab">Month ends</div><div class="val">submitted</div><div class="sub">auto, or day-1 safety net</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box"><div class="lab">Approvals page</div><div class="val">manager_approved</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box"><div class="lab">Approvals page</div><div class="val">finance_approved</div></div>
+          <div class="arrow">&rarr;</div>
+          <div class="box money"><div class="lab">Terminal</div><div class="val">hr_approved</div></div>
+        </div>
+        <p>Reject from any stage sets <code>rejected</code> with a comment. Every action appends an <code>approval_log</code> row, which you can see under approval_history on the payout endpoint. A rejected payout is not pending, so a re-run does not replace it. Delete it through the database if you need the engine to regenerate it.</p>
+        <p>Right now all 89 stored payouts for 2026-05 are in <code>submitted</code>, because May ended before the runs were made on 6 August.</p>
+        <h3>History</h3>
+        <p>The audit trail is separate from approval_log. It records plan created and updated with the changed fields, every engine run as <code>refreshed</code> or <code>submitted</code> with total and count, and the day-one batch promotion. Filter the History page by entity type: plan, calculation-run, payout-batch. Sub-section saves such as KPI weights or slab edits are not audited, so compare the plan JSON before and after if you need proof of a change.</p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="sandbox">
+        <h2>Payout sandbox</h2>
+        <p class="h2-sub">The engine's slab and deduction arithmetic, in the browser. Preloaded with employee 5897's real May figures.</p>
+        <div class="sandbox">
+          <h4>One payout KPI, one monitor KPI</h4>
+          <p class="hint">Edit any number. The result updates immediately. Matches Steps.cs accelerator, per-point payout, weight, and deduction band logic.</p>
+          <div class="sb-grid">
+            <div class="field"><label for="sb-ach">SALES_ACH achievement %</label><input id="sb-ach" type="number" step="0.01" value="96.68"></div>
+            <div class="field"><label for="sb-weight">Weight %</label><input id="sb-weight" type="number" step="1" value="100"></div>
+            <div class="field"><label for="sb-base">Base payout (SAR)</label><input id="sb-base" type="number" step="1" value="0"></div>
+            <div class="field"><label for="sb-prod">PRODUCTIVITY actual %</label><input id="sb-prod" type="number" step="0.01" value="79.49"></div>
+          </div>
+          <div class="tiers">
+            <table>
+              <thead><tr><th>Slab tier</th><th>min %</th><th>min incl.</th><th>max %</th><th>max incl.</th><th>rate</th><th>rate type</th></tr></thead>
+              <tbody id="sb-tiers">
+                <tr><td>1</td><td><input type="number" step="0.01" value="85" data-f="min"></td><td><select data-f="minInc"><option value="0" selected>no</option><option value="1">yes</option></select></td><td><input type="number" step="0.01" value="95" data-f="max"></td><td><select data-f="maxInc"><option value="0">no</option><option value="1" selected>yes</option></select></td><td><input type="number" step="1" value="150" data-f="rate"></td><td><select data-f="rt"><option value="per_achievement_point" selected>per_achievement_point</option><option value="percentage">percentage</option><option value="fixed">fixed</option></select></td></tr>
+                <tr><td>2</td><td><input type="number" step="0.01" value="95" data-f="min"></td><td><select data-f="minInc"><option value="0" selected>no</option><option value="1">yes</option></select></td><td><input type="number" step="0.01" value="105" data-f="max"></td><td><select data-f="maxInc"><option value="0">no</option><option value="1" selected>yes</option></select></td><td><input type="number" step="1" value="350" data-f="rate"></td><td><select data-f="rt"><option value="per_achievement_point" selected>per_achievement_point</option><option value="percentage">percentage</option><option value="fixed">fixed</option></select></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="tiers">
+            <table>
+              <thead><tr><th>Deduction band</th><th>min</th><th>min incl.</th><th>max</th><th>max incl.</th><th>deduct %</th></tr></thead>
+              <tbody id="sb-bands">
+                <tr><td>band 1</td><td><input type="number" step="0.01" value="80" data-f="min"></td><td><select data-f="minInc"><option value="0" selected>no</option><option value="1">yes</option></select></td><td><input type="number" step="0.01" value="85" data-f="max"></td><td><select data-f="maxInc"><option value="0">no</option><option value="1" selected>yes</option></select></td><td><input type="number" step="1" value="10" data-f="pct"></td></tr>
+                <tr><td>band 2</td><td><input type="number" step="0.01" value="" placeholder="none" data-f="min"></td><td><select data-f="minInc"><option value="0" selected>no</option><option value="1">yes</option></select></td><td><input type="number" step="0.01" value="80" data-f="max"></td><td><select data-f="maxInc"><option value="0" selected>no</option><option value="1">yes</option></select></td><td><input type="number" step="1" value="20" data-f="pct"></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="ledger" id="sb-out"></div>
+          <div class="explain" id="sb-why"></div>
+        </div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="create">
+        <h2>Create a plan</h2>
+        <p class="h2-sub">A test plan for Pre&amp;Vansales salesmen that you can run against the May data without touching the real ones.</p>
+        <p>The goal is a plan whose result you can predict. Use two people, one payout KPI, one monitor KPI. Employee 5897 lands in slab tier 2 with a deduction, employee 8938 lands in tier 2 above 100 percent with none. You already know their answers: 470.40 and 2,761.50.</p>
+
+        <h3><span class="num">1</span>Create the header</h3>
+        <p>Plans → New Plan. Name it <em>TEST TT Salesman</em>, type monthly, dates 2026-01-01 to 2026-12-31, currency SAR, base payout 0. Submit opens the builder.</p>
+<pre><code>curl -X POST localhost:5000/api/plans -H "Content-Type: application/json" -d '{
+  "name": "TEST TT Salesman", "plan_type": "monthly",
+  "effective_from": "2026-01-01", "effective_to": "2026-12-31",
+  "base_payout": 0, "currency_uid": "SAR", "created_by": "tester" }'</code></pre>
+
+        <h3><span class="num">2</span>Set the scope</h3>
+        <p>Plan tab → Scope. Tick the role <em>Pre&amp;Vansales Portal Role</em>. In the people list, search and tick <em>NASER ZAKI</em> (5897) and <em>ABDUL MONEIM SALEH</em> (8938). Save.</p>
+<pre><code>curl -X PUT localhost:5000/api/plans/&lt;uid&gt;/roles     -d '{"role_uids":["C_PRESALES_VANSALES"]}'
+curl -X PUT localhost:5000/api/plans/&lt;uid&gt;/employees -d '{"emp_uids":["5897","8938"]}'</code></pre>
+
+        <h3><span class="num">3</span>Add the payout KPI and its slab</h3>
+        <p>KPI's &amp; Weights tab → Add metric → <em>Sales Achievement</em>. Weight defaults to the remaining headroom, which is 100. Then open the slab ladder, choose type <em>accelerator</em>, rate type <em>per_achievement_point</em>, and enter two tiers: 85 to 95 at 150, and 95 to 105 at 350. Leave min exclusive and max inclusive.</p>
+<pre><code>curl -X PUT localhost:5000/api/plans/&lt;uid&gt;/slabs -d '{"slab_sets":[{
+  "name":"Test SA slab","type":"accelerator","kpi_uid":"v1r-kpi-SALES_ACH",
+  "tiers":[{"min_percent":85,"max_percent":95,"rate":150,"rate_type":"per_achievement_point","min_inclusive":false,"max_inclusive":true},
+           {"min_percent":95,"max_percent":105,"rate":350,"rate_type":"per_achievement_point","min_inclusive":false,"max_inclusive":true}]}]}'
+<span class="c"># then link it: read the new slab_set uid from GET /api/plans/&lt;uid&gt; and PUT it on the KPI</span>
+curl -X PUT localhost:5000/api/plans/&lt;uid&gt;/kpis -d '{"kpis":[
+  {"kpi_uid":"v1r-kpi-SALES_ACH","weight":100,"target_value":100,"slab_set_uid":"&lt;slab uid&gt;"},
+  {"kpi_uid":"v1r-kpi-PRODUCTIVITY","weight":0,"target_value":100}]}'</code></pre>
+        <div class="note warn"><div class="t">Check before running</div><p>Open <code>GET /api/plans/&lt;uid&gt;</code> and confirm the SALES_ACH entry under <code>kpis</code> has a non-null <code>slab_set_uid</code>. The builder links it when you save the ladder; via the API you must do it yourself. Without the link the fallback slab pays 0 and nothing looks broken.</p></div>
+
+        <h3><span class="num">4</span>Add the monitor KPI and its bands</h3>
+        <p>Deductions tab → Add metric → <em>Productivity</em>. Add two bands on <em>actual value</em>: above 80 up to and including 85 deducts 10 percent; below 80 deducts 20 percent.</p>
+<pre><code>curl -X PUT localhost:5000/api/plans/&lt;uid&gt;/kpi-deductions -d '{"rules":[
+  {"kpi_uid":"v1r-kpi-PRODUCTIVITY","name":"PROD band 1","metric_type":"actual_value","min_value":80,"max_value":85,"min_inclusive":false,"max_inclusive":true,"deduction_percent":10},
+  {"kpi_uid":"v1r-kpi-PRODUCTIVITY","name":"PROD band 2","metric_type":"actual_value","min_value":null,"max_value":80,"min_inclusive":false,"max_inclusive":false,"deduction_percent":20}]}'</code></pre>
+
+        <h3><span class="num">5</span>Activate and run</h3>
+        <p>Plan tab → Basics → status <em>active</em>. Go to Run payout, make sure the header period says 2026-05, pick <em>TEST TT Salesman</em>, tick <em>Save as simulation</em> for the first pass, press Run.</p>
+<pre><code>curl -X PUT  localhost:5000/api/plans/&lt;uid&gt; -d '{"status":"active"}'
+curl -X POST localhost:5000/api/simulation/run -d '{"plan_uid":"&lt;uid&gt;","period":"2026-05","created_by":"tester"}'</code></pre>
+        <p>Expected: 2 employees, total 3,231.90. If you see 0 employees, the role or whitelist did not save. If you see 2 employees and 0 total, the slab is not linked.</p>
+        <p>Untick simulation and run again to store real rows. May has ended, so both payouts will go straight to <code>submitted</code> and appear on the Approvals page. Approve one through all three stages and reject the other to see both paths in approval_history.</p>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="verify">
+        <h2>Verify a payout</h2>
+        <p class="h2-sub">Reproduce the engine's number from raw transactions. Employee 5897, AMB TT Salesman, May 2026.</p>
+        <p>Three requests give you everything: the payout with its per-KPI rows, the plan for the slab and bands, and the transaction totals for the person and month.</p>
+<pre><code>curl localhost:5000/api/calculation/payouts/13ea681b-62aa-4e6f-a277-aae75f5f4853
+curl localhost:5000/api/plans/v1r-plan-amb-tt-sal
+curl "localhost:5000/api/transactions/summary?period=2026-05&amp;empUid=5897"</code></pre>
+        <div class="tbl"><table>
+          <tr><th>Line</th><th class="num">Raw data</th><th class="num">Engine stored</th><th>Hand calculation</th><th></th></tr>
+          <tr><td>sale total</td><td class="num">239,094.99</td><td class="num"></td><td>from transactions summary</td><td></td></tr>
+          <tr><td>return total</td><td class="num">1,172.15</td><td class="num"></td><td>from transactions summary</td><td></td></tr>
+          <tr><td>target</td><td class="num">246,081.34</td><td class="num"></td><td>the one target row</td><td></td></tr>
+          <tr><td>SALES_ACH numerator</td><td class="num"></td><td class="num">237,922.84</td><td>239,094.99 − 1,172.15</td><td class="ok">✓</td></tr>
+          <tr><td>SALES_ACH percent</td><td class="num"></td><td class="num">96.68</td><td>237,922.84 ÷ 246,081.34 × 100</td><td class="ok">✓</td></tr>
+          <tr><td>slab tier</td><td class="num"></td><td class="num">2, rate 350</td><td>95 &lt; 96.68 ≤ 105</td><td class="ok">✓</td></tr>
+          <tr><td>raw payout</td><td class="num"></td><td class="num">588.00</td><td>(96.68 − 95) × 350</td><td class="ok">✓</td></tr>
+          <tr><td>gross</td><td class="num"></td><td class="num">588.00</td><td>588 × 100 ÷ 100</td><td class="ok">✓</td></tr>
+          <tr><td>PRODUCTIVITY</td><td class="num">31 / 39</td><td class="num">79.49</td><td>per-day sums, from kpi_results numerator and denominator</td><td class="ok">✓</td></tr>
+          <tr><td>deduction</td><td class="num"></td><td class="num">117.60</td><td>79.49 &lt; 80 → band 2 → 20% × 588</td><td class="ok">✓</td></tr>
+          <tr><td>BAD_RETURN</td><td class="num">996.84 / 2,168.99</td><td class="num">45.96</td><td>bad_return ÷ (return + bad_return), no band matches</td><td class="ok">✓</td></tr>
+          <tr><td><strong>net</strong></td><td class="num"></td><td class="num"><strong>470.40</strong></td><td>588 − 117.60</td><td class="ok">✓</td></tr>
+        </table></div>
+        <p>The per-day KPIs cannot be rebuilt from the summary endpoint. For those, trust the stored <code>numerator_value</code> and <code>denominator_value</code> and, if you need to go deeper, pull the employee's <code>visit</code> and <code>sale</code> rows from <code>GET /api/transactions?period=2026-05&amp;empUid=5897&amp;type=sale,visit&amp;limit=1000</code> and group by date yourself.</p>
+
+        <h3>Verification checklist</h3>
+        <ul class="check">
+          <li><input type="checkbox" id="c1"><div><label for="c1" class="what">Scope produced the people you expected</label><div class="how">employee_count on the run equals your whitelist, or the role headcount if no whitelist</div></div></li>
+          <li><input type="checkbox" id="c2"><div><label for="c2" class="what">Every payout KPI has a slab_type other than linear</label><div class="how">linear on a weighted KPI means no slab set was found and the payout is 0</div></div></li>
+          <li><input type="checkbox" id="c3"><div><label for="c3" class="what">Numerator and denominator match the transaction summary</label><div class="how">remember net sales subtracts return only, and a single "return" type includes bad_return</div></div></li>
+          <li><input type="checkbox" id="c4"><div><label for="c4" class="what">Tier boundaries behave at the edges</label><div class="how">find someone at exactly 95.00 or 105.00 and confirm which tier they land in</div></div></li>
+          <li><input type="checkbox" id="c5"><div><label for="c5" class="what">Deduction bands are in the same units as the formula output</label><div class="how">percent KPIs need percent bands; 0.4 to 0.5 never matches 45.96</div></div></li>
+          <li><input type="checkbox" id="c6"><div><label for="c6" class="what">Weights total 100</label><div class="how">the builder shows the total in the header of KPI's &amp; Weights</div></div></li>
+          <li><input type="checkbox" id="c7"><div><label for="c7" class="what">Run total equals the sum of net payouts</label><div class="how">Home total for the period is the sum of all non-simulation runs, so re-runs do not double count</div></div></li>
+          <li><input type="checkbox" id="c8"><div><label for="c8" class="what">Approval status is what the date implies</label><div class="how">closed month → submitted; current month → pending until the last day</div></div></li>
+        </ul>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="issues">
+        <h2>Known data issues</h2>
+        <p class="h2-sub">Found while verifying the May run. None are engine bugs; all are configuration or data.</p>
+        <div class="note danger"><div class="t">BAD_RETURN bands are in the wrong unit</div><p>The AMB TT plan's bands are 0.4 to 0.5 and 0.5 to 0.6 but the formula outputs a percentage. Employee 8938 has 100 percent bad returns and 5897 has 45.96 percent, and neither was deducted. The bands almost certainly mean 40 to 50 and 50 to 60. Check the other eight salesman plans for the same pattern.</p></div>
+        <div class="note warn"><div class="t">OVERDUE and DISTRIBUTION always read 0</div><p>There are no <code>overdue</code> or <code>ir_audit</code> rows in the May data. OVERDUE band 1 at 2 to 5 percent can never fire. DISTRIBUTION's bands are inactive so it is harmless for now.</p></div>
+        <div class="note warn"><div class="t">ASM plans have no roles</div><p>AMB - ASM and FRZ - ASM will always produce zero employees until a role is ticked on the Plan tab.</p></div>
+        <div class="note"><div class="t">Base payout is 0 everywhere</div><p>Fine for per-point slabs, but any tier switched to <code>percentage</code> rate will pay 0 until base_payout is set.</p></div>
+        <div class="note"><div class="t">Sql/schema.sql is stale</div><p>The file in the repo describes the old id-keyed schema. The database in use is uid-keyed. Use the SELECT statements in the controllers as the column reference, not that file.</p></div>
+      </section>
+
+      <!-- ============================================================ -->
+      <section id="reference">
+        <h2>API reference</h2>
+        <p class="h2-sub">Base URL localhost:5000/api. Bodies are JSON in snake_case; the web app converts from camelCase for you.</p>
+        <div class="tbl"><table>
+          <tr><th>Method</th><th>Path</th><th>Purpose</th></tr>
+          <tr><td class="mono">GET</td><td class="mono">/plans</td><td>list with roles, kpi_count</td></tr>
+          <tr><td class="mono">GET</td><td class="mono">/plans/{uid}</td><td>plan with every section</td></tr>
+          <tr><td class="mono">POST</td><td class="mono">/plans</td><td>create header, currency_uid required</td></tr>
+          <tr><td class="mono">PUT</td><td class="mono">/plans/{uid}</td><td>update header fields, including status</td></tr>
+          <tr><td class="mono">PUT</td><td class="mono">/plans/{uid}/roles · /employees · /sales-offices</td><td>replace scope lists</td></tr>
+          <tr><td class="mono">PUT</td><td class="mono">/plans/{uid}/kpis · /slabs · /kpi-deductions</td><td>replace payout structure</td></tr>
+          <tr><td class="mono">PUT</td><td class="mono">/plans/{uid}/rules · /eligibility · /multipliers · /penalties · /caps · /splits · /monthly-targets · /fixed-incentives</td><td>replace the advanced sections</td></tr>
+          <tr><td class="mono">GET</td><td class="mono">/kpis · /kpis/{uid}</td><td>library</td></tr>
+          <tr><td class="mono">POST · PUT · DELETE</td><td class="mono">/kpis · /kpis/{uid}</td><td>create, edit, soft-delete</td></tr>
+          <tr><td class="mono">POST</td><td class="mono">/calculation/run</td><td>real run: plan_uid, period, created_by, optional emp_uid</td></tr>
+          <tr><td class="mono">POST</td><td class="mono">/simulation/run</td><td>same body plus optional overrides</td></tr>
+          <tr><td class="mono">GET</td><td class="mono">/calculation/runs · /runs/{uid} · /payouts/{uid}</td><td>history, run with payouts, payout with KPI rows and approval history</td></tr>
+          <tr><td class="mono">GET · POST</td><td class="mono">/approvals?status= · /approvals/{uid}/action</td><td>queue and stage changes</td></tr>
+          <tr><td class="mono">GET</td><td class="mono">/audit?entityType=</td><td>audit trail</td></tr>
+          <tr><td class="mono">GET</td><td class="mono">/transactions?period=&amp;empUid=&amp;type= · /transactions/summary</td><td>rows and per-type totals</td></tr>
+          <tr><td class="mono">POST</td><td class="mono">/bulk/transactions</td><td>CSV import target</td></tr>
+          <tr><td class="mono">GET</td><td class="mono">/employees · /roles · /currency · /products · /customers</td><td>master data</td></tr>
+          <tr><td class="mono">GET · POST</td><td class="mono">/cron/status · /cron/run-now</td><td>nightly refresh</td></tr>
+          <tr><td class="mono">GET</td><td class="mono">/dashboard/summary?period=</td><td>Home cards</td></tr>
+        </table></div>
+        <p>Swagger is available at <code>localhost:5000/swagger</code> while the API runs in Development.</p>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  // ---------- Payout sandbox ----------
+  function num(v) { var n = parseFloat(v); return isNaN(n) ? null : n; }
+  function readRows(tbodyId) {
+    var rows = [];
+    document.querySelectorAll('#' + tbodyId + ' tr').forEach(function (tr) {
+      var r = {};
+      tr.querySelectorAll('[data-f]').forEach(function (el) {
+        var f = el.getAttribute('data-f');
+        if (el.tagName === 'SELECT') r[f] = (f === 'rt') ? el.value : el.value === '1';
+        else r[f] = num(el.value);
+      });
+      rows.push(r);
+    });
+    return rows;
+  }
+  function inRange(v, r) {
+    var minOk = r.min === null || (r.minInc ? v >= r.min : v > r.min);
+    var maxOk = r.max === null || (r.maxInc ? v <= r.max : v < r.max);
+    return minOk && maxOk;
+  }
+  function fmt(n) { return (Math.round(n * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  function compute() {
+    var ach = num(document.getElementById('sb-ach').value) || 0;
+    var weight = num(document.getElementById('sb-weight').value) || 0;
+    var base = num(document.getElementById('sb-base').value) || 0;
+    var prod = num(document.getElementById('sb-prod').value);
+    var tiers = readRows('sb-tiers');
+    var bands = readRows('sb-bands');
+
+    // accelerator slab: first tier the value falls in
+    var tier = null, tierIdx = -1;
+    for (var i = 0; i < tiers.length; i++) { if (tiers[i].min !== null && inRange(ach, tiers[i])) { tier = tiers[i]; tierIdx = i + 1; break; } }
+    var rate = tier ? tier.rate : 0;
+    var points = tier ? Math.max(0, ach - tier.min) : 0;
+    var raw = 0, rawWhy = '';
+    if (tier) {
+      if (tier.rt === 'per_achievement_point') { raw = points * rate; rawWhy = '(' + ach + ' − ' + tier.min + ') × ' + rate; }
+      else if (tier.rt === 'percentage') { raw = base * rate / 100; rawWhy = base + ' × ' + rate + ' ÷ 100'; }
+      else { raw = rate; rawWhy = 'fixed ' + rate; }
+    } else { rawWhy = 'below the first tier, rate 0'; }
+    raw = Math.round(raw * 100) / 100;
+    var weighted = Math.round(raw * (weight / 100) * 100) / 100;
+    var gross = weighted;
+
+    // deduction: highest matching band
+    var band = null, bandIdx = -1;
+    if (prod !== null) {
+      for (var j = 0; j < bands.length; j++) {
+        if (inRange(prod, bands[j]) && (band === null || bands[j].pct > band.pct)) { band = bands[j]; bandIdx = j + 1; }
+      }
+    }
+    var dedPct = band ? Math.min(100, band.pct) : 0;
+    var ded = Math.round(gross * dedPct / 100 * 100) / 100;
+    var net = Math.round((gross - ded) * 100) / 100;
+
+    var out = document.getElementById('sb-out');
+    out.innerHTML =
+      '<div class="r">slab tier</div><div class="v">' + (tier ? 'tier ' + tierIdx + ', rate ' + rate : 'none') + '</div>' +
+      '<div class="r">points above tier min</div><div class="v">' + fmt(points) + '</div>' +
+      '<div class="r">raw payout</div><div class="v">' + fmt(raw) + '</div>' +
+      '<div class="r">× weight ' + weight + '% = gross</div><div class="v">' + fmt(gross) + '</div>' +
+      '<div class="r">deduction' + (band ? ' (band ' + bandIdx + ', ' + dedPct + '%)' : ' (no band)') + '</div><div class="v neg">− ' + fmt(ded) + '</div>' +
+      '<div class="r total">net payout (SAR)</div><div class="v total">' + fmt(net) + '</div>';
+    document.getElementById('sb-why').textContent =
+      'Raw = ' + rawWhy + '. ' +
+      (band ? 'PRODUCTIVITY ' + prod + ' falls in band ' + bandIdx + ', so ' + dedPct + '% of gross is removed.' : 'PRODUCTIVITY ' + (prod === null ? 'blank' : prod) + ' matches no band, so nothing is removed.') +
+      ' Engine result for employee 5897 with these inputs: 470.40.';
+  }
+  document.querySelectorAll('.sandbox input, .sandbox select').forEach(function (el) { el.addEventListener('input', compute); });
+  compute();
+
+  // ---------- TOC highlight ----------
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var sections = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  function onScroll() {
+    var y = window.scrollY + 80, idx = 0;
+    for (var i = 0; i < sections.length; i++) { if (sections[i] && sections[i].offsetTop <= y) idx = i; }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+</script>
