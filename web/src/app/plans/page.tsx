@@ -1,9 +1,9 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus, FileText, Calendar, Target, Search,
-  LayoutGrid, Rows3, Archive,
+  LayoutGrid, Rows3, Archive, Eye, Pencil,
 } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -303,14 +303,80 @@ function PlanCard({ plan, selected, onToggle }: { plan: Plan; selected: boolean;
   );
 }
 
+/**
+ * Row-level actions: a blue eye button that opens a small menu with
+ * "View" (read-only page) and "Edit" (plan builder).
+ */
+function ActionsMenu({ plan }: { plan: Plan }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative inline-block text-left">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title="Actions"
+        aria-label={`Actions for ${plan.name}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={cn(
+          'inline-flex items-center justify-center h-7 w-7 rounded-md text-blue-600 hover:bg-blue-50 hover:text-blue-700 transition-colors dark:text-blue-400 dark:hover:bg-blue-500/10',
+          open && 'bg-blue-50 dark:bg-blue-500/10'
+        )}
+      >
+        <Eye className="h-4 w-4" />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full mt-1 z-20 w-36 card shadow-lg py-1 animate-fade-in"
+        >
+          <Link
+            href={`/plans/${plan.uid}/view`}
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" /> View
+          </Link>
+          <Link
+            href={`/plans/${plan.uid}`}
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <Pencil className="h-4 w-4 text-slate-500" /> Edit
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlanTable({ plans, selected, onToggle, onToggleAll, allSelected }: {
   plans: Plan[]; selected: Set<string>;
   onToggle: (uid: string) => void; onToggleAll: () => void; allSelected: boolean;
 }) {
   return (
-    <section className="card overflow-hidden">
+    <section className="card overflow-visible">
       <table className="w-full text-sm">
-        <thead className="text-[10px] uppercase tracking-[0.1em] text-slate-500 bg-slate-50 border-b border-slate-200 dark:bg-slate-800 dark:border-slate-700">
+        <thead className="text-[10px] uppercase tracking-[0.1em] text-slate-500 bg-slate-50 border-b border-slate-200 dark:bg-slate-800 dark:border-slate-700 [&_th:first-child]:rounded-tl-xl [&_th:last-child]:rounded-tr-xl">
           <tr>
             <th className="pl-4 pr-2 py-3 w-8">
               <input type="checkbox" checked={allSelected} onChange={onToggleAll} className="rounded border-slate-300" />
@@ -320,8 +386,7 @@ function PlanTable({ plans, selected, onToggle, onToggleAll, allSelected }: {
             <th className="text-left px-2 py-3 font-semibold">Type</th>
             <th className="text-left px-2 py-3 font-semibold">Effective</th>
             <th className="text-right px-2 py-3 font-semibold">KPIs</th>
-            <th className="text-right px-2 py-3 font-semibold">Sales offices</th>
-            <th className="text-right pl-2 pr-4 py-3 font-semibold">Base payout</th>
+            <th className="text-center pl-2 pr-4 py-3 font-semibold">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -334,15 +399,16 @@ function PlanTable({ plans, selected, onToggle, onToggleAll, allSelected }: {
                 <input type="checkbox" checked={selected.has(p.uid)} onChange={() => onToggle(p.uid)} className="rounded border-slate-300" />
               </td>
               <td className="px-2 py-3">
-                <Link href={`/plans/${p.uid}`} className="font-medium text-slate-800 hover:text-primary-600 dark:text-slate-100">{p.name}</Link>
+                <div className="font-medium text-slate-800 dark:text-slate-100">{p.name}</div>
                 {p.description && <div className="text-xs text-slate-500 line-clamp-1">{p.description}</div>}
               </td>
               <td className="px-2 py-3"><StatusPill status={p.status} /></td>
               <td className="px-2 py-3 capitalize text-slate-500">{p.plan_type}</td>
               <td className="px-2 py-3 font-mono text-xs text-slate-500 tabular-nums">{formatDate(p.effective_from)} → {formatDate(p.effective_to)}</td>
               <td className="px-2 py-3 text-right tabular-nums">{p.kpi_count}</td>
-              <td className="px-2 py-3 text-right tabular-nums">{p.sales_office_count}</td>
-              <td className="pl-2 pr-4 py-3 text-right font-semibold tabular-nums">{formatCurrency(p.base_payout, p.currency_code)}</td>
+              <td className="pl-2 pr-4 py-3 text-center">
+                <ActionsMenu plan={p} />
+              </td>
             </tr>
           ))}
         </tbody>
